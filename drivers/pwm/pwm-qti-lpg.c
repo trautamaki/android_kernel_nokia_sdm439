@@ -203,6 +203,33 @@ struct qpnp_lpg_chip {
 	bool			use_sdam;
 };
 
+extern char led_mode[32];
+u32 alert_val[40] = {13,38,64,89,115,140,166,191,217,242,242,242,217,191,
+						166,140,115,89,64,38,13,13,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+u32 urgent_val[40] = {242,191,140,89,38,0,0,0,0,0,242,191,140,89,38,0,0,0,0,0,242,191,140,89,38,0,0,0,0,0,242,191,140,89,38,0,0,0,0,0};
+u32 singletime_val[20] = {242,230,217,204,191,179,166,153,140,128,115,102,89,77,64,51,38,26,13,0};
+u32 usual_val[64] = {13,26,38,51,64,77,89,102,115,128,140,153,166,179,191,204,217,230,242,242,242,242,
+											230,217,204,191,179,166,153,140,128,115,102,89,77,64,51,38,26,13,
+												0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+													0,0,0,0
+											};
+u32 alwayson_val[20] = {89,89,89,89,89,89,89,89,89,89,89,89,89,89,89,89,89,89,89,89};
+
+u32 alert_dark_val[40] = {2,6,10,13,17,21,25,29,33,36,36,36,33,29,
+						25,21,17,13,10,6,2,2,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};
+u32 urgent_dark_val[40] = {36,29,21,13,6,0,0,0,0,0,36,29,21,13,6,0,0,0,0,0,36,29,21,13,6,0,0,0,0,0,36,29,21,13,6,0,0,0,0,0};
+u32 singletime_dark_val[20] = {36,35,33,31,29,27,25,23,21,19,17,15,13,12,10,8,6,4,2,0};
+u32 usual_dark_val[64] = {2,4,6,8,10,12,13,15,17,19,21,23,25,27,29,31,33,35,36,36,36,36,
+											35,33,31,29,27,25,23,21,19,17,15,13,12,10,8,6,4,2,
+												0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+													0,0,0,0
+											};
+u32 alwayson_dark_val[20] = {13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13,13};
+
+char current_led_mode[32] = {0};
+
+static bool is_ledmode_equal = true;
+
 static int qpnp_lpg_read(struct qpnp_lpg_channel *lpg, u16 addr, u8 *val)
 {
 	int rc;
@@ -503,6 +530,71 @@ static int qpnp_lpg_set_sdam_lut_pattern(struct qpnp_lpg_channel *lpg,
 	for (i = 0; i < length; i++)
 		val[i] = pattern[i] * 255 / 100;
 
+	if (!is_ledmode_equal && (lpg->lpg_idx == 0)){
+		is_ledmode_equal = true;
+		if(sysfs_streq(led_mode,"urgent")){
+			lpg->ramp_config.pattern = &urgent_val[0];
+			for (i = 0; i < 40; i++){
+				val[i] = urgent_val[i];
+			}
+			length = 40;
+		}else if(sysfs_streq(led_mode,"alert")){
+			lpg->ramp_config.pattern = &alert_val[0];
+			for (i = 0; i < 40; i++){
+				val[i] = alert_val[i];
+			}
+			length = 40;
+		}else if(sysfs_streq(led_mode,"singletime")){
+			lpg->ramp_config.pattern = &singletime_val[0];
+			for (i = 0; i < 20; i++){
+				val[i] = singletime_val[i];
+			}
+			length = 20;
+		}else if(sysfs_streq(led_mode,"usual")){
+			lpg->ramp_config.pattern = &usual_val[0];
+			for (i = 0; i < 64; i++){
+				val[i] = usual_val[i];
+			}
+			length = 64;
+		}else if(sysfs_streq(led_mode,"alwayson")){
+			lpg->ramp_config.pattern = &alwayson_val[0];
+			for (i = 0; i < 20; i++){
+				val[i] = alwayson_val[i];
+			}
+			length = 20;
+		}else if(sysfs_streq(led_mode,"urgentdark")){
+			lpg->ramp_config.pattern = &urgent_dark_val[0];
+			for (i = 0; i < 40; i++){
+				val[i] = urgent_dark_val[i];
+			}
+			length = 40;
+		}else if(sysfs_streq(led_mode,"alertdark")){
+			lpg->ramp_config.pattern = &alert_dark_val[0];
+			for (i = 0; i < 40; i++){
+				val[i] = alert_dark_val[i];
+			}
+			length = 40;
+		}else if(sysfs_streq(led_mode,"singletimedark")){
+			lpg->ramp_config.pattern = &singletime_dark_val[0];
+			for (i = 0; i < 20; i++){
+				val[i] = singletime_dark_val[i];
+			}
+			length = 20;
+		}else if(sysfs_streq(led_mode,"usualdark")){
+			lpg->ramp_config.pattern = &usual_dark_val[0];
+			for (i = 0; i < 64; i++){
+				val[i] = usual_dark_val[i];
+			}
+			length = 64;
+		}else if(sysfs_streq(led_mode,"alwaysondark")){
+			lpg->ramp_config.pattern = &alwayson_dark_val[0];
+			for (i = 0; i < 20; i++){
+				val[i] = alwayson_dark_val[i];
+			}
+			length = 20;
+		}
+	}
+
 	rc = qpnp_lut_sdam_write(lut, addr, val, length);
 	if (rc < 0) {
 		dev_err(lpg->chip->dev, "Write pattern in SDAM failed, rc=%d",
@@ -511,6 +603,9 @@ static int qpnp_lpg_set_sdam_lut_pattern(struct qpnp_lpg_channel *lpg,
 	}
 
 	lpg->ramp_config.pattern_length = length;
+	lpg->ramp_config.hi_idx = length - 1;
+	lpg->max_pattern_length = length;
+
 unlock:
 	mutex_unlock(&lut->lock);
 
@@ -1038,7 +1133,19 @@ static int qpnp_lpg_pwm_set_output_type(struct pwm_chip *pwm_chip,
 
 	if (src_sel == LUT_PATTERN) {
 		/* program LUT if it's never been programmed */
-		if (!lpg->lut_written) {
+	        if (sysfs_streq(pwm->label,"red")){
+                printk("wingtech-led<%s-%d>:led_mode = %s,current_led_mode = %s\n",__func__,__LINE__,led_mode,current_led_mode);
+			if (sysfs_streq(current_led_mode,led_mode)){
+				is_ledmode_equal = true;
+			}else {
+				memset(current_led_mode,0,sizeof(current_led_mode));
+				memcpy(current_led_mode,led_mode,strlen(led_mode));
+				is_ledmode_equal = false;
+			}
+		}
+
+		if (!lpg->lut_written||!is_ledmode_equal) {
+			//not enter this function
 			rc = qpnp_lpg_set_lut_pattern(lpg,
 					lpg->ramp_config.pattern,
 					lpg->ramp_config.pattern_length);
@@ -1591,7 +1698,8 @@ static int qpnp_lpg_probe(struct platform_device *pdev)
 		dev_err(chip->dev, "Add pwmchip failed, rc=%d\n", rc);
 		goto err_out;
 	}
-
+	memset(current_led_mode,0,sizeof(current_led_mode));
+	memcpy(current_led_mode,"none",strlen("none"));
 	return 0;
 err_out:
 	mutex_destroy(&chip->bus_lock);

@@ -88,6 +88,8 @@ MODULE_ALIAS("mmc:block");
 #define PCKD_TRGR_LOWER_BOUND		5
 #define PCKD_TRGR_PRECISION_MULTIPLIER	100
 
+struct gendisk *emmc_disk;
+
 static struct mmc_cmdq_req *mmc_cmdq_prep_dcmd(
 		struct mmc_queue_req *mqrq, struct mmc_queue *mq);
 static DEFINE_MUTEX(block_mutex);
@@ -4822,6 +4824,10 @@ static int mmc_blk_probe(struct mmc_card *card)
 		pm_runtime_set_active(&card->dev);
 		pm_runtime_enable(&card->dev);
 	}
+
+    if (!strcmp(md->disk->disk_name,"mmcblk0")){
+        emmc_disk = md->disk;
+    }
 
 	return 0;
 

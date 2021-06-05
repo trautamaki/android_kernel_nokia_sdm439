@@ -345,6 +345,19 @@ config INPUT_IXP4XX_BEEPER
 	  To compile this driver as a module, choose M here: the
 	  module will be called ixp4xx-beeper.
 
+config INPUT_ABOV_SAR
+	tristate "abov sar support"
+	depends on I2C
+	help
+	  If you say yes here, you can connect a beeper to the
+	  ixp4xx gpio pins. This is used by the LinkSys NSLU2.
+
+	  If unsure, say Y.
+
+	  To compile this driver as a module, choose M here: the
+	  module will be called ixp4xx-beeper.
+
+
 config INPUT_COBALT_BTNS
 	tristate "Cobalt button interface"
 	depends on MIPS_COBALT

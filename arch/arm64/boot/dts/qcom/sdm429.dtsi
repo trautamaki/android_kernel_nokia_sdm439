@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "sdm439.dtsi"
+#include "T89626AA2.dtsi"
 #include "sdm429-cpu.dtsi"
 
 / {

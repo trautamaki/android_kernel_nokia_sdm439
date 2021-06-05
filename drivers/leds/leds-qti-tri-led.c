@@ -310,7 +310,8 @@ static ssize_t breath_show(struct device *dev, struct device_attribute *attr,
 
 	return snprintf(buf, PAGE_SIZE, "%d\n", led->led_setting.breath);
 }
-
+char led_mode[32] = {0};
+EXPORT_SYMBOL_GPL(led_mode);
 static ssize_t breath_store(struct device *dev, struct device_attribute *attr,
 						const char *buf, size_t count)
 {
@@ -342,8 +343,34 @@ unlock:
 }
 
 static DEVICE_ATTR(breath, 0644, breath_show, breath_store);
+
+static ssize_t ledmode_show(struct device *dev, struct device_attribute *attr,
+							char *buf)
+{
+	return sprintf(buf,"%s\n",led_mode);
+}
+
+
+static ssize_t ledmode_store(struct device *dev, struct device_attribute *attr,
+						const char *buf, size_t count)
+{
+
+	struct led_classdev *led_cdev = dev_get_drvdata(dev);
+
+	if(sysfs_streq(led_cdev->name,"red")){
+		memset(led_mode,0,sizeof(led_mode));
+		memcpy(led_mode,buf,strlen(buf));
+		led_mode[strlen(buf)] = '\0';
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(ledmode, 0644, ledmode_show, ledmode_store);
+
 static const struct attribute *breath_attrs[] = {
 	&dev_attr_breath.attr,
+	&dev_attr_ledmode.attr,
 	NULL
 };
 
@@ -539,6 +566,8 @@ static int qpnp_tri_led_probe(struct platform_device *pdev)
 
 	dev_dbg(chip->dev, "Tri-led module with subtype 0x%x is detected\n",
 					chip->subtype);
+	memset(led_mode,0,sizeof(led_mode));
+	memcpy(led_mode,"none",strlen("none"));
 	return 0;
 destroy:
 	mutex_destroy(&chip->bus_lock);

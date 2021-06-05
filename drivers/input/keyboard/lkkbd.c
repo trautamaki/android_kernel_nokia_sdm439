@@ -261,6 +261,7 @@ static unsigned short lkkbd_keycode[LK_NUM_KEYCODES] = {
 	[0xf9] = KEY_MINUS,
 	[0xfa] = KEY_LEFTBRACE,
 	[0xfb] = KEY_APOSTROPHE,
+	[0xfc] = KEY_GOOGLE,
 };
 
 #define CHECK_LED(LK, VAR_ON, VAR_OFF, LED, BITS) do {		\

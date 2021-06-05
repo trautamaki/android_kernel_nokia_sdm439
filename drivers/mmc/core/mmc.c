@@ -21,6 +21,7 @@
 #include <linux/mmc/mmc.h>
 #include <linux/reboot.h>
 #include <trace/events/mmc.h>
+#include <linux/swap.h>//bug484447 - Add flash info, lizerong, 20190917
 
 #include "core.h"
 #include "host.h"
@@ -30,6 +31,11 @@
 
 #define DEFAULT_CMD6_TIMEOUT_MS	500
 #define MIN_CACHE_EN_TIMEOUT_MS 1600
+
+//bug484447 - Add flash info, lizerong, 20190917
+extern char emmc_info[20];
+char wingtech_mmc_vendor[10];
+
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -127,6 +133,68 @@ static int mmc_decode_cid(struct mmc_card *card)
 			mmc_hostname(card->host), card->csd.mmca_vsn);
 		return -EINVAL;
 	}
+	
+	
+    // bug484447 - Add flash info, lizerong, 20190917, begin
+    /*           name                CID
+	    KM3H6001CA-B515   150100 334836 434142
+	    KMDV6001DM-B620   150100 445636 444D42
+	    KMDH6001DA-B422   150100 444836 444142
+	    KMGD6001BM-B421   150100 474436 424D42
+	    KMQE60013M-B318   150100 514536 334D42
+	    16EMCP16-EL3GTB28 700100 464D41 474541
+	    32EMCP24-EL3JTA28 700100 464d42 474a43
+	    H9HP52AECMMDAR    900104 684338 61503E
+	    H9HP52ACPMADAR    900104 684338 61503E
+            16EMCP08-NL3DTB28 700100 464d41 454538
+    */
+    switch(card->cid.manfid)
+    {
+		case 0x15:
+			strcpy(wingtech_mmc_vendor, "SAMSUNG");
+			if((0x48 == card->cid.prod_name[1]) && (0x43 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "KM3H6001CA-B515");
+			else if((0x56 == card->cid.prod_name[1]) && (0x44 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "KMDV6001DM-B620");
+			else if((0x48 == card->cid.prod_name[1]) && (0x44 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "KMDH6001DA-B422");
+			else if((0x44 == card->cid.prod_name[1]) && (0x42 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "KMGD6001BM-B421");
+			else if((0x45 == card->cid.prod_name[1]) && (0x33 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "KMQE60013M-B318");
+			else
+				strcpy(emmc_info, "Unknown device");
+			break;
+		case 0x70:
+			if((0x4D == card->cid.prod_name[1]) && (0x41 == card->cid.prod_name[2]) && (0x47 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "16EMCP16-EL3GTB28");
+			else if((0x4D == card->cid.prod_name[1]) && (0x42 == card->cid.prod_name[2]) && (0x47 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "32EMCP24-EL3JTA28");
+			else if((0x4d == card->cid.prod_name[1]) && (0x41 == card->cid.prod_name[2]) && (0x45 == card->cid.prod_name[3]))
+				strcpy(emmc_info, "16EMCP08-NL3DTB28");
+			else
+			    strcpy(emmc_info, "Unknown device");
+			strcpy(wingtech_mmc_vendor, "kingSton");
+			break;
+		case 0x90:
+			strcpy(wingtech_mmc_vendor, "Hynix");
+			if((0x43 == card->cid.prod_name[1]) && (0x61 == card->cid.prod_name[3]))
+			{
+				if((totalram_pages/1024/1024/1024) > 4)
+					strcpy(emmc_info, "H9HP52AECMMDAR");
+				else
+					strcpy(emmc_info, "H9HP52ACPMADAR");
+			}
+			else
+				strcpy(emmc_info, "Unknown device");
+			break;
+		default:
+			strcpy(wingtech_mmc_vendor, "Unknown");
+			strcpy(emmc_info, "Unknown device");
+			break;
+    }
+    printk("wingtech emmc info %s", emmc_info);
+    // bug484447 - Add flash info, lizerong, 20190917, begin
 
 	return 0;
 }

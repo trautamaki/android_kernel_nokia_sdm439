@@ -34,6 +34,30 @@
 		qcom,allowed-clock-rates = <329140000 329140000
 					308570000 270000000 200000000>;
 	};
+
+	sec_boot_fuse: secbootfuse@0xA01D0 {
+		compatible = "qcom,sec-boot-fuse";
+		reg = <0xA01D0 0x4>;
+		reg-names = "sec-boot-base";
+	};
+
+	sn_fuse: sn_fuse@0xA0128 {
+		compatible = "qcom,sn-fuse";
+		reg = <0xA0128 0x4>;
+		reg-names = "sn-base";
+	};
+
+	jtag_id: jtag_id {
+		compatible = "qcom,jtag-id";
+		reg = <0x000A607C 0x4>;
+		reg-names = "jtag-id-base";
+	};
+
+	oem_id: oem_id {
+		compatible = "qcom,oem-id";
+		reg = <0x000A6080 0x4>;
+		reg-names = "oem-id-base";
+	};
 };
 
 &clock_gcc {

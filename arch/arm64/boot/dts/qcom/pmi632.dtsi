@@ -142,6 +142,7 @@
 				qcom,cal-val = <0>;
 			};
 
+			/* bat_thermal 100k pull-up. */
 			chan@4a {
 				label = "bat_therm";
 				reg = <0x4a>;
@@ -178,6 +179,7 @@
 				qcom,cal-val = <0>;
 			};
 
+			/* bat id 100k pull-up. */
 			chan@4b {
 				label = "bat_id";
 				reg = <0x4b>;
@@ -190,7 +192,8 @@
 				qcom,cal-val = <0>;
 			};
 
-			chan@4c {
+			/* xo_therm is on the side of the pm439 ic. */
+			/*chan@4c {
 				label = "xo_therm";
 				reg = <0x4c>;
 				qcom,decimation = <2>;
@@ -199,7 +202,7 @@
 				qcom,scale-function = <4>;
 				qcom,hw-settle-time = <8>;
 				qcom,fast-avg-setup = <0>;
-			};
+			};*/
 
 
 			chan@1e {
@@ -226,6 +229,7 @@
 				qcom,cal-val = <0>;
 			};
 
+			/* quiet thermal 100k pull-up. */
 			chan@53 {
 				label = "quiet_therm";
 				reg = <0x53>;
@@ -319,9 +323,22 @@
 			qcom,flash-disable-soc = <10>;
 			qcom,sw-jeita-enable;
 			qcom,step-charging-enable;
+
+			/* setting termination current of battery charging. */
+			qcom,chg-term-src = <1>;
+			qcom,chg-term-current-ma = <175>; // the supposed one working for this purpose.
+			qcom,chg-term-base-current-ma = <100>; // the lowest one for this purpose.
+
+
+			/* removing the temp mitigation
+			   since we have had one workaround for
+			   this purpose. */
 			qcom,hw-die-temp-mitigation;
-			qcom,hw-connector-mitigation;
+			/* qcom,hw-connector-mitigation; */
+
 			qcom,connector-internal-pull-kohm = <100>;
+			qcom,usb-icl-ua = <1000000>;
+
 
 			qcom,thermal-mitigation
 				= <3000000 2500000 2000000 1500000
@@ -482,8 +499,7 @@
 			compatible = "qcom,qpnp-qg";
 			#address-cells = <1>;
 			#size-cells = <1>;
-
-			qcom,qg-iterm-ma = <100>;
+			qcom,qg-iterm-ma = <250>;
 			qcom,hold-soc-while-full;
 			qcom,linearize-soc;
 			qcom,qg-vadc = <&pmi632_vadc>;
@@ -565,27 +581,27 @@
 			nvmem = <&pmi632_sdam7>;
 			qcom,pbs-client = <&pmi632_pbs_client3>;
 			qcom,lut-sdam-base = <0x80>;
-			qcom,lut-patterns = <0 0 0 14 28 42 56 70 84 100
-						100 84 70 56 42 28 14 0 0 0>;
+			qcom,lut-patterns = <13 38 64 89 115 140 166 191 217 242
+						242 242 217 191 166 140 115 89 64 38 13 13 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0>;
 			lpg@1 {
 				qcom,lpg-chan-id = <1>;
-				qcom,ramp-step-ms = <200>;
+				qcom,ramp-step-ms = <50>;
 				qcom,ramp-low-index = <0>;
-				qcom,ramp-high-index = <19>;
+				qcom,ramp-high-index = <39>;
 				qcom,ramp-pattern-repeat;
 				qcom,lpg-sdam-base = <0x48>;
 			};
 			lpg@2 {
 				qcom,lpg-chan-id = <2>;
-				qcom,ramp-step-ms = <200>;
+				qcom,ramp-step-ms = <50>;
 				qcom,ramp-low-index = <0>;
-				qcom,ramp-high-index = <19>;
+				qcom,ramp-high-index = <39>;
 				qcom,ramp-pattern-repeat;
 				qcom,lpg-sdam-base = <0x56>;
 			};
 			lpg@3 {
 				qcom,lpg-chan-id = <3>;
-				qcom,ramp-step-ms = <200>;
+				qcom,ramp-step-ms = <50>;
 				qcom,ramp-low-index = <0>;
 				qcom,ramp-high-index = <19>;
 				qcom,ramp-pattern-repeat;
@@ -625,13 +641,17 @@
 			interrupt-names = "sc-irq";
 
 			qcom,pmic-revid = <&pmi632_revid>;
-			qcom,voltage-step-ramp;
 
 			lcdb_ldo_vreg: ldo {
 				label = "ldo";
 				regulator-name = "lcdb_ldo";
 				regulator-min-microvolt = <4000000>;
 				regulator-max-microvolt = <6000000>;
+
+				qcom,ldo-voltage-mv = <5800>;
+				qcom,ldo-pd = <1>;
+				qcom,ldo-pd-strength = <1>;
+
 			};
 
 			lcdb_ncp_vreg: ncp {
@@ -639,8 +659,11 @@
 				regulator-name = "lcdb_ncp";
 				regulator-min-microvolt = <4000000>;
 				regulator-max-microvolt = <6000000>;
-			};
 
+				qcom,ncp-voltage-mv = <5800>;
+				qcom,ncp-pd = <1>;
+				qcom,ncp-pd-strength = <1>;
+			};
 			lcdb_bst_vreg: bst {
 				label = "bst";
 				regulator-name = "lcdb_bst";
@@ -671,7 +694,7 @@
 			pmi632_flash0: qcom,flash_0 {
 				label = "flash";
 				qcom,led-name = "led:flash_0";
-				qcom,max-current = <1500>;
+				qcom,max-current = <1000>;//modified by Chris.wt for T89571.
 				qcom,default-led-trigger = "flash0_trigger";
 				qcom,id = <0>;
 				qcom,current-ma = <1000>;

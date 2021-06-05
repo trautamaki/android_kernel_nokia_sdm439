@@ -15,6 +15,12 @@
 #include <linux/export.h>
 #include "msm_camera_io_util.h"
 #include "msm_flash.h"
+#include <linux/cdev.h>       /* cdev_init */ //+ yinjie1.wt add flashlight node ++
+#include <linux/platform_device.h>
+#include <linux/of_gpio.h>
+
+
+
 
 #define FLASH_NAME "qcom,gpio-flash"
 
@@ -52,13 +58,13 @@ static int32_t qm215_flash_low(
 			gpio_num_info->gpio_num[SENSOR_GPIO_FL_NOW],
 			GPIO_OUT_HIGH,
 			gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN],
-			GPIO_OUT_HIGH);
+			GPIO_OUT_LOW); //2019.11.2 JLQ modify for flash
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_GPIO_FL_NOW],
 			GPIO_OUT_HIGH);
 		gpio_set_value_cansleep(
 			gpio_num_info->gpio_num[SENSOR_GPIO_FL_EN],
-			GPIO_OUT_HIGH);
+			GPIO_OUT_LOW);  //2019.11.2 JLQ modify for flash
 	}
 	CDBG("Exit\n");
 	return 0;
@@ -186,6 +192,56 @@ static int32_t qm215_platform_flash_init(struct msm_flash_ctrl_t *flash_ctrl,
 
 	return 0;
 }
+
+static struct class *flashlight_class;
+static struct device *flashlight_device;
+static int flash=0,flash1=0;
+
+
+static ssize_t show_flash(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	pr_err("get backlight duty value is %d\n", flash);
+	return sprintf(buf, "%d\n", flash);
+}
+static ssize_t store_flash(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	char *pvalue=NULL;
+	//u8 pmic_subtype ;
+	//union power_supply_propval ret = {0, };
+	//int rc = 0;
+	flash= simple_strtol(buf, &pvalue, 0);
+	pr_info("flashduty1= %d\n", flash);
+	if(flash>2)
+		flash=2;
+	if(flash>0){
+		flash1=1;
+                   // gpio_direction_output(34,1); //torch mode
+                    gpio_direction_output(33,1); //torch mode
+		pr_debug("wt_flash_flashlight flash=%d\n", flash);
+	}else if(flash == 0 && flash1 == 1){
+                gpio_direction_output(33,0);
+                //gpio_direction_output(34,0);
+		flash1=0;
+		pr_debug("wt_flash_flashlight 2 flash=%d\n", flash);
+	}
+	pr_debug("Exit!\n");
+	return count;
+}
+static DEVICE_ATTR(flash, 0664, show_flash, store_flash);
+
+static dev_t flashlight_devno;
+#define FLASHLIGHT_DEVNAME            "kd_camera_flashlight"
+static struct cdev flashlight_cdev;
+static const struct file_operations flashlight_fops = {
+	.owner = THIS_MODULE,
+	.unlocked_ioctl = NULL,
+	.open = NULL,
+	.release = NULL,
+#ifdef CONFIG_COMPAT
+	.compat_ioctl = NULL,
+#endif
+};
+
 static int32_t qm215_flash_platform_probe(struct platform_device *pdev)
 {
 	int32_t rc = 0;
@@ -217,6 +273,38 @@ static int32_t qm215_flash_platform_probe(struct platform_device *pdev)
 		}
 		flash_ctrl->platform_flash_init = qm215_platform_flash_init;
 	}
+
+        rc =0; 
+        rc = alloc_chrdev_region(&flashlight_devno, 0, 1, FLASHLIGHT_DEVNAME);
+        if (rc) {
+            pr_err("alloc_chrdev_region fail: %d ~", rc);
+        } else {
+            pr_err("major: %d, minor: %d ~", MAJOR(flashlight_devno),MINOR(flashlight_devno));
+        }
+        cdev_init(&flashlight_cdev, &flashlight_fops);
+        flashlight_cdev.owner = THIS_MODULE;
+        rc = cdev_add(&flashlight_cdev, flashlight_devno, 1);
+        if (rc) {
+            pr_err("cdev_add fail: %d ~", rc);
+        }
+
+    flashlight_class = class_create(THIS_MODULE, "flashlightdrv");
+      if (IS_ERR(flashlight_class)) {
+          pr_err("[flashlight_probe] Unable to create class, err = %d ~",
+               (int)PTR_ERR(flashlight_class));
+          return  -1 ;
+      }
+      flashlight_device =
+          device_create(flashlight_class, NULL, flashlight_devno, NULL, FLASHLIGHT_DEVNAME);
+      if (NULL == flashlight_device) {
+          pr_err("device_create fail ~");
+      }
+    
+      rc = device_create_file(flashlight_device,&dev_attr_flash);
+     if (rc) {
+         pr_err("device_create_file flash fail!\n");
+     }
+
 	return rc;
 }
 

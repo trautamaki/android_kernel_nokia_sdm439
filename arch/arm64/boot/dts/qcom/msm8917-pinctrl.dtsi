@@ -907,26 +907,26 @@
 			wsa_vi_on: wsa_vi_on {
 				mux {
 					pins = "gpio94", "gpio95";
-					function = "wsa_io";
+					function = "gpio";
 				};
 
 				config {
 					pins = "gpio94", "gpio95";
 					drive-strength = <8>; /* 8 MA */
-					bias-disable; /* NO pull */
+					bias-pull-up; /* NO pull */
 				};
 			};
 
 			wsa_vi_off: wsa_vi_off {
 				mux {
 					pins = "gpio94", "gpio95";
-					function = "wsa_io";
+					function = "gpio";
 				};
 
 				config {
 					pins = "gpio94", "gpio95";
 					drive-strength = <2>; /* 2 MA */
-					bias-pull-down;
+					bias-pull-up;
 				};
 			};
 		};
@@ -1454,7 +1454,7 @@
 		tlmm_gpio_key {
 			gpio_key_active: gpio_key_active {
 				mux {
-					pins = "gpio91", "gpio127", "gpio128";
+					pins = "gpio90", "gpio91", "gpio127", "gpio128";/*add gpio90 for google key jinzhao 20190929*/
 					drive-strength = <2>;
 					bias-pull-up;
 				};
@@ -1462,7 +1462,7 @@
 
 			gpio_key_suspend: gpio_key_suspend {
 				mux {
-					pins = "gpio91", "gpio127", "gpio128";
+					pins = "gpio90", "gpio91", "gpio127", "gpio128";/*add gpio90 for google key jinzhao 20190929*/
 					drive-strength = <2>;
 					bias-pull-up;
 				};

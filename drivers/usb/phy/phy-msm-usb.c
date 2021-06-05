@@ -2164,6 +2164,7 @@ static int msm_otg_set_host(struct usb_otg *otg, struct usb_bus *host)
 
 	if (host) {
 		vbus_otg = devm_regulator_get(motg->phy.dev, "vbus_otg");
+
 		if (IS_ERR(vbus_otg)) {
 			msm_otg_dbg_log_event(&motg->phy,
 					"UNABLE TO GET VBUS_OTG",

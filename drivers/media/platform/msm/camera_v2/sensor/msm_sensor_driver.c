@@ -18,7 +18,7 @@
 #include "msm_cci.h"
 #include "msm_camera_dt_util.h"
 #include "msm_sensor_driver.h"
-
+#include <linux/hardware_info.h>
 /* Logging macro */
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
@@ -1086,6 +1086,12 @@ int32_t msm_sensor_driver_probe(void *setting,
 		goto free_camera_info;
 	}
 
+        if(!strcmp(slave_info->sensor_name, "gc5035")) {
+            hardwareinfo_set_prop(HARDWARE_FRONT_CAM, "GC5035");           
+        }else if(!strcmp(slave_info->sensor_name, "gc8034")) {
+            hardwareinfo_set_prop(HARDWARE_BACK_CAM-1, "GC8034");
+        }
+
 CSID_TG:
 	/* Update sensor, actuator and eeprom name in
 	 * sensor control structure
@@ -1191,7 +1197,6 @@ CSID_TG:
 	 */
 	s_ctrl->is_probe_succeed = 1;
 	return rc;
-
 camera_power_down:
 	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 free_camera_info:
