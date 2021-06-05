@@ -314,6 +314,14 @@ int qg_get_battery_temp(struct qpnp_qg *chip, int *temp)
 	int rc = 0;
 	struct qpnp_vadc_result result;
 
+//+chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
+#ifdef CONFIG_DISABLE_TEMP_PROTECT
+	pr_err("WINGTECH disable temp protect version; real temp:250\n");
+	*temp = 250;
+	return rc;
+#endif
+//-chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
+
 	if (chip->battery_missing) {
 		*temp = 250;
 		return 0;

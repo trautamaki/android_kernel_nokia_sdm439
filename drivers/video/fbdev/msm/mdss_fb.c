@@ -277,6 +277,19 @@ static int mdss_fb_notify_update(struct msm_fb_data_type *mfd,
 
 static int lcd_backlight_registered;
 
+//+cr487527 shenwei2.wt, add, 19.09.20, charger bringup copy yandingjiang
+#define LCD_MIN_BRIGHTNESS   10
+static int current_lcd_brightness = 0;
+bool lcd_is_on(void)
+{
+         if (current_lcd_brightness > LCD_MIN_BRIGHTNESS)
+                 return true;
+         else
+                 return false;
+}
+EXPORT_SYMBOL(lcd_is_on);
+//-cr487527 shenwei2.wt, add, 19.09.20, charger bringup copy yandingjiang
+
 static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 				      enum led_brightness value)
 {
@@ -304,6 +317,9 @@ static void mdss_fb_set_bl_brightness(struct led_classdev *led_cdev,
 							!mfd->bl_level)) {
 		mutex_lock(&mfd->bl_lock);
 		mdss_fb_set_backlight(mfd, bl_lvl);
+//+cr487527 shenwei2.wt, add, 19.11.01, charger bringup copy yandingjiang
+		current_lcd_brightness = bl_lvl;
+//-cr487527 shenwei2.wt, add, 19.09.01, charger bringup copy yandingjiang
 		mutex_unlock(&mfd->bl_lock);
 	}
 }

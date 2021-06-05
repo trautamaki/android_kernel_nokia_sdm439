@@ -43,9 +43,21 @@
 	gpio_keys {
 		compatible = "gpio-keys";
 		input-name = "gpio-keys";
+		status = "okay";//add google key fot 89572 jinzhao 20190929
 		pinctrl-names = "default";
 		pinctrl-0 = <&gpio_key_active>;
 
+		/*Start:add google for T89572 jinzhao 20190915*/
+		goog_key {
+			label = "google_key";
+			gpios = <&tlmm 90 0x1>;
+			linux,input-type = <1>;
+			linux,code = <236>;
+			debounce-interval = <15>;
+			gpio-key,wakeup;
+			linux,can-disable;      
+		};
+		/*End:add google for T89572 jinzhao 20190915*/
 		vol_up {
 			label = "volume_up";
 			gpios = <&tlmm 91 0x1>;
@@ -56,7 +68,7 @@
 			gpio-key,wakeup;
 		};
 	};
-
+/*
 	fpc1020 {
 		compatible = "fpc,fpc1020";
 		interrupt-parent = <&tlmm>;
@@ -74,7 +86,40 @@
 		pinctrl-1 = <&fpc_reset_high>;
 		pinctrl-2 = <&fpc_int_low>;
 	};
+*/
 };
+
+&i2c_3 {
+	status = "ok";
+
+
+	focaltech@38 {
+		compatible = "focaltech,fts";
+		reg = <0x38>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2008>;
+		vdd-supply = <&pm8916_l17>;
+		//vcc_i2c-supply = <&pm8916_l5>;
+		focaltech,irq-gpio = <&tlmm 65 0x00>;
+		focaltech,reset-gpio = <&tlmm 64 0x00>;
+		focaltech,max-touch-number = <5>;
+		focaltech,display-coords = <0 0 720 1520>;/*x_min,y_min,x_max,y_max*/
+		status = "ok";
+	};
+	st143xx@55 {
+		compatible = "sitronix,st143xx";
+		reg = <0x55>;
+		interrupt-parent = <&tlmm>;
+		interrupts = <65 0x2008>;
+		vdd_ana-supply = <&pm8916_l17>;
+		//vcc_i2c-supply = <&pm8916_l5>;
+		sitronix,interrupt-gpios = <&tlmm 65 0x00>;
+		sitronix,reset-gpios = <&tlmm 64 0x00>;
+		sitronix,button-map = <158 172 139>;
+		//status = "disabled";
+	};
+};
+
 
 &sdhc_1 {
 	/* device core power supply */
@@ -119,7 +164,7 @@
 	pinctrl-0 = <&sdc2_clk_on &sdc2_cmd_on &sdc2_data_on &sdc2_cd_on>;
 	pinctrl-1 = <&sdc2_clk_off &sdc2_cmd_off &sdc2_data_off>;
 
-	cd-gpios = <&tlmm 67 0x0>;
+	cd-gpios = <&tlmm 67 0x1>;
 
 	qcom,clk-rates = <400000 20000000 25000000 50000000 100000000
 								200000000>;
@@ -129,12 +174,14 @@
 
 &mdss_dsi_active {
 	mux {
-		pins = "gpio60", "gpio93", "gpio94";
+		//pins = "gpio60", "gpio94", "gpio95";
+		pins = "gpio60";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio60", "gpio93", "gpio94";
+		//pins = "gpio60", "gpio94", "gpio95";
+		pins = "gpio60";
 		drive-strength = <8>; /* 8 mA */
 		bias-disable = <0>; /* no pull */
 		output-high;
@@ -143,28 +190,30 @@
 
 &mdss_dsi_suspend {
 	mux {
-		pins = "gpio60", "gpio93", "gpio94";
+		//pins = "gpio60", "gpio94", "gpio95";
+		pins = "gpio60";
 		function = "gpio";
 	};
 
 	config {
-		pins = "gpio60", "gpio93", "gpio94";
+		//pins = "gpio60", "gpio94", "gpio95";
+		pins = "gpio60";
 		drive-strength = <2>; /* 2 mA */
 		bias-pull-down; /* pull down */
 	};
 };
 
-#include "msm8937-mdss-panels.dtsi"
+#include "qm215-mdss-panels.dtsi"
 
 &mdss_mdp {
 	qcom,mdss-pref-prim-intf = "dsi";
 };
 
-&dsi_panel_pwr_supply {
+/*&dsi_panel_pwr_supply {
 	#address-cells = <1>;
 	#size-cells = <0>;
 
-	qcom,panel-supply-entry@0 {
+	*qcom,panel-supply-entry@0 {
 		reg = <1>;
 		qcom,supply-name = "vddio";
 		qcom,supply-min-voltage = <1744000>;
@@ -175,7 +224,7 @@
 	/delete-node/ qcom,panel-supply-entry@1;
 	/delete-node/ qcom,panel-supply-entry@2;
 	/delete-node/ qcom,panel-supply-entry@3;
-};
+};*/
 
 &pm8916_gpios {
 	nfc_clk {
@@ -193,7 +242,7 @@
 	#size-cells = <0>;
 
 	status = "ok";
-	nq@28 {
+	/*nq@28 {
 		compatible = "qcom,nq-nci";
 		reg = <0x28>;
 		qcom,nq-irq = <&tlmm 17 0x00>;
@@ -210,7 +259,17 @@
 		pinctrl-1 = <&nfc_int_suspend &nfc_disable_suspend>;
 		clocks = <&clock_gcc clk_bb_clk2_pin>;
 		clock-names = "ref_clk";
-	};
+	};*/
+	ocp_ldo@3e{                                                            
+	compatible = "qcom,I2C_PANEL_LDO";	                                         
+	reg = <0x3e>;  					                                               
+	ocp2131,enn-gpio = <&tlmm 95 0x00>;                            
+	ocp2131,enp-gpio = <&tlmm 94 0x00>; 	                        			                                                                                                    
+	//pinctrl-names = "pmx_ts_active","pmx_ts_suspend","pmx_ts_release";     
+	//pinctrl-0 = <&ts_int_active &ts_reset_active>;                         
+	//pinctrl-1 = <&ts_int_suspend &ts_reset_suspend>;                       
+	//pinctrl-2 = <&ts_release>;                                                                                                                                    
+};
 };
 
 &mdss_dsi {
@@ -218,15 +277,17 @@
 };
 
 &mdss_dsi0 {
-	qcom,dsi-pref-prim-pan = <&dsi_hx8399c_hd_vid>;
+	qcom,dsi-pref-prim-pan = <&dsi_ili9881d_720_1520p_video>;   
 	pinctrl-names = "mdss_default", "mdss_sleep";
 	pinctrl-0 = <&mdss_dsi_active &mdss_te_active>;
 	pinctrl-1 = <&mdss_dsi_suspend &mdss_te_suspend>;
+	qcom,regulator-ldo-mode;
 
 	qcom,platform-te-gpio = <&tlmm 24 0>;
 	qcom,platform-reset-gpio = <&tlmm 60 0>;
-	qcom,platform-bklight-en-gpio = <&tlmm 93 0>;
-	qcom,platform-enable-gpio = <&tlmm 94 0>;
+	
+	//qcom,platform-bklight-en-gpio = <&tlmm 93 0>;
+	//qcom,platform-enable-gpio = <&tlmm 94 0>;
 };
 
 &dsi_hx8399c_hd_vid {
@@ -251,3 +312,20 @@
 	qcom,mdss-dsi-pan-fps-update =
 		"dfps_immediate_porch_mode_vfp";
 };
+
+&dsi_ili9881d_720_1520p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,esd-check-enabled;
+	qcom,cont-splash-enabled;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+ };
+
+&dsi_lide7703_720_1520p_video {
+	qcom,panel-supply-entries = <&dsi_panel_pwr_supply>;
+	//qcom,esd-check-enabled;
+	qcom,cont-splash-enabled;
+	qcom,mdss-dsi-pwm-gpio = <&pm8916_mpps 4 0>;
+};
+
+
+

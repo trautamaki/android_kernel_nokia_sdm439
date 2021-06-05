@@ -25,6 +25,7 @@
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#define MY_CDBG(fmt, args...) pr_info(fmt, ##args)
 
 int msm_camera_fill_vreg_params(struct camera_vreg_t *cam_vreg,
 	int num_vreg, struct msm_sensor_power_setting *power_setting,
@@ -1417,7 +1418,8 @@ FREE_GPIO_CONF:
 	*gpio_conf = NULL;
 	return rc;
 }
-
+unsigned rear_cam_avdd = 0;
+extern uint16_t sensor_addr_self;
 int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 	enum msm_camera_device_type_t device_type,
 	struct msm_camera_i2c_client *sensor_i2c_client)
@@ -1470,6 +1472,7 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 			pr_err("%s:%d cannot set pin to active state",
 				__func__, __LINE__);
 	}
+	MY_CDBG("lxy power_setting_size %d", ctrl->power_setting_size);
 	for (index = 0; index < ctrl->power_setting_size; index++) {
 		CDBG("%s index %d\n", __func__, index);
 		power_setting = &ctrl->power_setting[index];
@@ -1509,13 +1512,22 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 			if (!ctrl->gpio_conf->gpio_num_info->valid
 				[power_setting->seq_val])
 				continue;
-			CDBG("%s:%d gpio set val %d\n", __func__, __LINE__,
+			MY_CDBG("lxy sensor addr:0x%x , rear_cam_avdd %d", sensor_addr_self, rear_cam_avdd);
+			if(sensor_addr_self == 0x2e){  //aux camera i2c addr
+				if((rear_cam_avdd == 1) && //back camera power up avdd
+					(ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 35)) //avdd gpio
+					break;
+			}
+			MY_CDBG("lxy %s:%d gpio %d set val %d\n", __func__, __LINE__,
 				ctrl->gpio_conf->gpio_num_info->gpio_num
-				[power_setting->seq_val]);
+				[power_setting->seq_val], (int) power_setting->config_val);
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val],
 				(int) power_setting->config_val);
+                       if((ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 41) && (sensor_addr_self == 0x2e)){//huangguoyong.wt,2020.02.19,modify criteria judgement standard
+				rear_cam_avdd += 1;//huangguoyong.wt,2020.02.19,modify criteria judgement standard
+			}
 			break;
 		case SENSOR_VREG:
 			if (power_setting->seq_val == INVALID_VREG)
@@ -1588,6 +1600,11 @@ power_up_failed:
 			if (!ctrl->gpio_conf->gpio_num_info->valid
 				[power_setting->seq_val])
 				continue;
+			if(sensor_addr_self == 0x2e){  //aux camera i2c addr
+				if((rear_cam_avdd == 1) && //back camera power up avdd
+					(ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 35)) //avdd gpio
+					break;
+			}
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val], GPIOF_OUT_INIT_LOW);
@@ -1715,6 +1732,14 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 			if (!ctrl->gpio_conf->gpio_num_info->valid
 				[pd->seq_val])
 				continue;
+			if(sensor_addr_self == 0x2e){  //aux camera i2c addr
+				if((rear_cam_avdd == 2) && //huangguoyong.wt,2020.02.19,modify criteria judgement standardback camera power up avdd
+					(ctrl->gpio_conf->gpio_num_info->gpio_num[pd->seq_val] == 35)) //avdd gpio
+					break;
+			}
+			MY_CDBG("lxy %s:%d gpio %d set val %d\n", __func__, __LINE__,
+				ctrl->gpio_conf->gpio_num_info->gpio_num
+				[pd->seq_val], (int) pd->config_val);
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[pd->seq_val],

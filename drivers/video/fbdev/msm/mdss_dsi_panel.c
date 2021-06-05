@@ -815,9 +815,57 @@ static void mdss_dsi_panel_switch_mode(struct mdss_panel_data *pdata,
 		mdss_dsi_panel_dsc_pps_send(ctrl_pdata, &pdata->panel_info);
 }
 
+#ifdef CONFIG_WT_LCD_BOOST_MODE
+static int led_trigger_dim(struct mdss_dsi_ctrl_pdata *ctrl,int from, int to, int div)
+{
+    int i,bklt_diff,lvl;
+    unsigned t=20;
+	
+    if(to == 0)
+    {
+	mdss_dsi_panel_bklt_pwm(ctrl, 0);
+	return 0;
+    }
+    bklt_diff = to-from;
+    if(abs(bklt_diff) < div)
+    {
+	mdss_dsi_panel_bklt_pwm(ctrl, to);
+	return 0;
+    }
+	
+    if(from > to)
+	div = -div;	
+    if((to < ctrl->panel_data.panel_info.bl_min) && (to != 0))
+	to = ctrl->panel_data.panel_info.bl_min;
+    for (i=1; i <= (bklt_diff/div+1); i++)
+    {
+        lvl = from + ( i * div);
+	
+	if ((lvl < to) && (div < 0))
+		lvl = to;
+	if (lvl > ctrl->panel_data.panel_info.bl_max)
+		lvl = ctrl->panel_data.panel_info.bl_max;
+        pr_debug("[Display]<===>lvl[%d]=%d,\n",i,lvl);
+
+	mdss_dsi_panel_bklt_pwm(ctrl, lvl);
+
+	ctrl->bklt_last_level=lvl;
+	//t =abs(bklt_diff*20);
+	t = 200;
+	pr_debug("[Display]t==%d\n",t);
+        mdelay(t);
+    }
+
+    return 0;
+}
+#endif
+
 static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 							u32 bl_level)
 {
+	#ifdef CONFIG_WT_LCD_BOOST_MODE
+	    s32 led_div = 10;
+	#endif
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_dsi_ctrl_pdata *sctrl = NULL;
 
@@ -828,7 +876,7 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
-
+	
 	/*
 	 * Some backlight controllers specify a minimum duty cycle
 	 * for the backlight brightness. If the brightness is less
@@ -837,13 +885,32 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 
 	if ((bl_level < pdata->panel_info.bl_min) && (bl_level != 0))
 		bl_level = pdata->panel_info.bl_min;
+	#ifdef CONFIG_WT_LCD_BOOST_MODE
+		pr_debug("[Display]mdss_dsi_panel_bl_ctrl bl_level=%d,bklt_last_level=%d\n",bl_level,ctrl_pdata->bklt_last_level);
+	#endif
 
 	switch (ctrl_pdata->bklt_ctrl) {
 	case BL_WLED:
 		led_trigger_event(bl_led_trigger, bl_level);
 		break;
 	case BL_PWM:
-		mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
+		#ifdef CONFIG_WT_LCD_BOOST_MODE
+		//if (ctrl_pdata->bklt_last_level != bl_level) {
+			if ((ctrl_pdata->bklt_last_level == pdata->panel_info.bl_max) || (bl_level == pdata->panel_info.bl_max))
+			{
+			    pr_debug("[Display]come in boost mode level=%d,bklt_last_level=%d\n",bl_level,ctrl_pdata->bklt_last_level);		    
+			    led_div = pdata->panel_info.bl_max / 25;	
+			    led_trigger_dim(ctrl_pdata, ctrl_pdata->bklt_last_level, bl_level, led_div);
+			}
+			else
+			{
+			    mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
+			    ctrl_pdata->bklt_last_level=bl_level;
+			}
+		//}
+		#else
+			mdss_dsi_panel_bklt_pwm(ctrl_pdata, bl_level);
+		#endif
 		break;
 	case BL_DCS_CMD:
 		if (!mdss_dsi_sync_wait_enable(ctrl_pdata)) {

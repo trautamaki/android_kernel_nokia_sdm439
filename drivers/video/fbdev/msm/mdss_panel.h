@@ -352,6 +352,38 @@ enum dynamic_switch_modes {
 	SWITCH_TO_VIDEO_MODE,
 	SWITCH_RESOLUTION,
 };
+//add for ocp2031 +-5v panel power on
+typedef enum
+{
+	LCM_LDO_VOL_0V,
+
+	
+    	LCM_LDO_VOL_4V0,
+	LCM_LDO_VOL_4V1,
+	LCM_LDO_VOL_4V2,
+	LCM_LDO_VOL_4V3,
+	LCM_LDO_VOL_4V4,
+	LCM_LDO_VOL_4V5,
+	LCM_LDO_VOL_4V6,
+	LCM_LDO_VOL_4V7,
+	LCM_LDO_VOL_4V8,
+	LCM_LDO_VOL_4V9,
+	LCM_LDO_VOL_5V0,
+	LCM_LDO_VOL_5V1,
+	LCM_LDO_VOL_5V2,
+	LCM_LDO_VOL_5V3,
+	LCM_LDO_VOL_5V4,
+	LCM_LDO_VOL_5V5,
+	LCM_LDO_VOL_5V6,
+	LCM_LDO_VOL_5V7,
+	LCM_LDO_VOL_5V8,
+	LCM_LDO_VOL_5V9,
+	LCM_LDO_VOL_6V0,
+
+
+	LCM_LDO_VOL_MAX,
+}LCM_LDO_VOLTAGE_E;
+
 
 /**
  * struct mdss_panel_timing - structure for panel timing information
@@ -1195,6 +1227,9 @@ void mdss_panel_dsc_initial_line_calc(struct dsc_desc *dsc, int enc_ip_width);
  *                 * 720 for partial frame single_display_dual_lm: 720x2560
  */
 void mdss_panel_dsc_pclk_param_calc(struct dsc_desc *dsc, int intf_width);
+
+//add for ocp2031 +-5v panel power on
+int ocp2131_set_voltage(LCM_LDO_VOLTAGE_E avdd,LCM_LDO_VOLTAGE_E avee);
 
 /**
  * mdss_panel_dsc_prepare_pps_buf - prepares Picture Parameter Set to be

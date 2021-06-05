@@ -86,7 +86,7 @@
 		modem_mem: modem_region@0 {
 			compatible = "removed-dma-pool";
 			no-map;
-			reg = <0x0 0x86800000 0x0 0x5500000>;
+			reg = <0x0 0x86800000 0x0 0x5000000>;
 		};
 
 		adsp_fw_mem: adsp_fw_region@0 {
@@ -637,8 +637,12 @@
 		#size-cells = <1>;
 		ranges;
 
-		interrupts = <0 134 0>,<0 140 0>;
-		interrupt-names = "core_irq", "async_irq";
+		/*Start:add OTG phy irq jinzhao 20190918*/
+		//interrupts = <0 134 0>,<0 140 0>;
+		//interrupt-names = "core_irq", "async_irq";
+		interrupts = <0 134 0>,<0 140 0>,<0 136 0>;
+		interrupt-names = "core_irq", "async_irq", "phy_irq";
+		/*End:add OTG phy irq jinzhao 20190918*/
 
 		hsusb_vdd_dig-supply = <&pm8937_l2>;
 		HSUSB_1p8-supply = <&pm8937_l7>;
@@ -780,8 +784,8 @@
 		reg = <0xb017000 0x1000>;
 		reg-names = "wdt-base";
 		interrupts = <0 3 0>, <0 4 0>;
-		qcom,bark-time = <11000>;
-		qcom,pet-time = <10000>;
+		qcom,bark-time = <15000>;
+		qcom,pet-time = <8000>;
 		qcom,ipi-ping;
 		qcom,wakeup-enable;
 	};

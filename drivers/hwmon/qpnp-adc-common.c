@@ -30,6 +30,15 @@
 #include <linux/completion.h>
 #include <linux/qpnp/qpnp-adc.h>
 
+#include <linux/timer.h>
+#include <linux/timex.h>
+#include <linux/rtc.h>
+
+/* This is a test for showing all of the temperatures in the system.
+struct timex  txc;
+struct rtc_time tm;
+*/
+
 #define KELVINMIL_DEGMIL	273160
 #define QPNP_VADC_LDO_VOLTAGE_MIN	1800000
 #define QPNP_VADC_LDO_VOLTAGE_MAX	1800000
@@ -54,6 +63,24 @@
 #define IADC_SCALE_2 152593
 
 #define USBIN_I_SCALE 25
+
+static int fake_batt_temp = 0;
+static int fake_board_temp = 0;
+extern int temp_test_feature_status(void);
+
+void fake_temp_set(int temp1, int temp2)
+{
+    fake_batt_temp  = temp1*10;
+    fake_board_temp = temp2;
+}
+EXPORT_SYMBOL(fake_temp_set);
+
+void fake_temp_get(int* temp1, int* temp2)
+{
+    *temp1 = fake_batt_temp;
+    *temp2 = fake_board_temp;
+}
+EXPORT_SYMBOL(fake_temp_get);
 
 /*
  * Units for temperature below (on x axis) is in 0.1DegC as
@@ -676,6 +703,197 @@ static const struct qpnp_vadc_map_pt adcmap_batt_therm[] = {
 	{129,	960},
 	{124,	980}
 };
+
+/* Voltage to temperature [only: reference voltage is based on 1.8v]*/
+
+static const struct qpnp_vadc_map_pt adcmap_NCP15WF104F03RC[] = {
+	{1742,	-40000},
+	{1718,	-35000},
+	{1687,	-30000},
+	{1647,	-25000},
+	{1596,	-20000},
+	{1534,	-15000},
+	{1459,	-10000},
+	{1372,	-5000},
+	{1275,	0},
+	{1169,	5000},
+	{1058,	10000},
+	{945,	15000},
+	{834,	20000},
+	{729,	25000},
+	{630,	30000},
+	{541,	35000},
+	{461,	40000},
+	{392,	45000},
+	{332,	50000},
+	{280,	55000},
+	{236,	60000},
+	{199,	65000},
+	{169,	70000},
+	{142,	75000},
+	{121,	80000},
+	{102,	85000},
+	{87,	90000},
+	{74,	95000},
+	{64,	100000},
+	{55,	105000},
+	{47,	110000},
+	{40,	115000},
+	{35,	120000},
+	{30,	125000}
+};
+
+static const struct qpnp_vadc_map_pt adcmap_NCP15WF104F03RC_572[] = {
+       {1760,  -40000},
+       {1743,  -35000},
+       {1721,  -30000},
+       {1693,  -25000},
+       {1656,  -20000},
+       {1610,  -15000},
+       {1553,  -10000},
+       {1485,  -5000},
+       {1406,  0},
+       {1316,  5000},
+       {1219,  10000},
+       {1114,  15000},
+       {1007,  20000},
+       {900,   25000},
+       {795,   30000},
+       {697,   35000},
+       {605,   40000},
+       {522,   45000},
+       {448,   50000},
+       {383,   55000},
+       {327,   60000},
+       {278,   65000},
+       {237,   70000},
+       {202,   75000},
+       {172,   80000},
+       {146,   85000},
+       {125,   90000},
+       {107,   95000},
+       {91,    100000},
+       {79,    105000},
+       {68,    110000},
+       {59,    115000},
+       {51,    120000},
+       {44,    125000}
+};
+
+/* based on reference voltage 1.875v */
+static const struct qpnp_vadc_map_pt adcmap_NCP15WF104F03RC_1_875V[] = {
+    {1833, -40000},
+    {1816, -35000},
+    {1793, -30000},
+    {1763, -25000},
+    {1725, -20000},
+    {1676, -15000},
+    {1617, -10000},
+    {1546, -5000},
+    {1464, 0},
+    {1371, 5000},
+    {1269, 10000},
+    {1161, 15000},
+    {1049, 20000},
+    {937, 25000},
+    {828, 30000},
+    {725, 35000},
+    {630, 40000},
+    {544, 45000},
+    {467, 50000},
+    {399, 55000},
+    {340, 60000},
+    {290, 65000},
+    {247, 70000},
+    {210, 75000},
+    {179, 80000},
+    {152, 85000},
+    {130, 90000},
+    {111, 95000},
+    {95, 100000},
+    {82, 105000},
+    {70, 110000},
+    {61, 115000},
+    {53, 120000},
+    {46, 125000},
+};
+
+static const struct qpnp_vadc_map_pt adcmap_batt_NCP15WF104F03RC_1_875V[] = {
+    {1833, -400},
+    {1816, -350},
+    {1793, -300},
+    {1763, -250},
+    {1725, -200},
+    {1676, -150},
+    {1617, -100},
+    {1546, -50},
+    {1464, 0},
+    {1371, 50},
+    {1269, 100},
+    {1161, 150},
+    {1049, 200},
+    {937, 250},
+    {828, 300},
+    {725, 350},
+    {630, 400},
+    {544, 450},
+    {467, 500},
+    {399, 550},
+    {340, 600},
+    {290, 650},
+    {247, 700},
+    {210, 750},
+    {179, 800},
+    {152, 850},
+    {130, 900},
+    {111, 950},
+    {95, 1000},
+    {82, 1050},
+    {70, 1100},
+    {61, 1150},
+    {53, 1200},
+    {46, 1250},
+};
+
+/* based on reference voltage 1.875v */
+static const struct qpnp_vadc_map_pt adcmap_batt_therm_Sunwoda_3000ma[] = {
+    {1835, -400},
+    {1819, -350},
+    {1797, -300},
+    {1767, -250},
+    {1729, -200},
+    {1681, -150},
+    {1621, -100},
+    {1550, -50},
+    {1467, 0},
+    {1374, 50},
+    {1271, 100},
+    {1162, 150},
+    {1050, 200},
+    {937, 250},
+    {828, 300},
+    {724, 350},
+    {629, 400},
+    {543, 450},
+    {467, 500},
+    {400, 550},
+    {342, 600},
+    {292, 650},
+    {250, 700},
+    {214, 750},
+    {183, 800},
+    {157, 850},
+    {135, 900},
+    {116, 950},
+    {100, 1000},
+    {87, 1050},
+    {75, 1100},
+    {65, 1150},
+    {57, 1200},
+    {50, 1250},
+};
+
+
 
 /* Voltage to temperature */
 static const struct qpnp_vadc_map_pt adcmap_batt_therm_qrd[] = {
@@ -1315,6 +1533,36 @@ int32_t qpnp_adc_batt_therm_qrd(struct qpnp_vadc_chip *chip,
 							* 1000);
 		batt_thm_voltage = div64_s64(batt_thm_voltage,
 				adc_properties->full_scale_code * 1000);
+                /* for test feature. */
+                if(temp_test_feature_status()){
+                        adc_chan_result->physical = fake_batt_temp;
+                        return 0;
+                }
+
+                /* Here, we have two different type of NTC tables. */
+
+                if(qg_check_type_of_battery(BAT_TYPE_SUNWODA_3000MA)){
+                        qpnp_adc_map_voltage_temp(adcmap_batt_therm_Sunwoda_3000ma,
+                                      ARRAY_SIZE(adcmap_batt_therm_Sunwoda_3000ma),
+                                      batt_thm_voltage, &adc_chan_result->physical);
+                }else if(qg_check_type_of_battery(BAT_TYPE_JIADE_3000MA)){
+                        qpnp_adc_map_voltage_temp(adcmap_batt_NCP15WF104F03RC_1_875V,
+                                      ARRAY_SIZE(adcmap_batt_NCP15WF104F03RC_1_875V),
+                                      batt_thm_voltage, &adc_chan_result->physical);
+                }else{
+                        qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd,
+                                      ARRAY_SIZE(adcmap_batt_therm_qrd),
+                                      batt_thm_voltage, &adc_chan_result->physical);
+                }
+
+                /* printk("[yandingjiang][battery_temperature = %d] [%s][%d] \n", (int)((adc_chan_result->physical)/10), __func__, __LINE__);*/
+
+	} else {
+
+                qpnp_adc_scale_with_calib_param(adc_code,
+			adc_properties, chan_properties, &batt_thm_voltage);
+
+                adc_chan_result->measurement = batt_thm_voltage;
 		qpnp_adc_map_voltage_temp(adcmap_batt_therm_qrd,
 			ARRAY_SIZE(adcmap_batt_therm_qrd),
 			batt_thm_voltage, &adc_chan_result->physical);
@@ -1641,7 +1889,11 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 	if (!chan_properties || !chan_properties->offset_gain_numerator ||
 		!chan_properties->offset_gain_denominator || !adc_properties)
 		return -EINVAL;
-
+    /* for test feature. */
+    if(temp_test_feature_status()){
+        adc_chan_result->physical = fake_board_temp;
+        return 0;
+    }
 	if (adc_properties->adc_hc) {
 		/* (code * vref_vadc (1.875V) * 1000) / (scale code * 1000) */
 		if (adc_code > QPNP_VADC_HC_MAX_CODE)
@@ -1651,25 +1903,59 @@ int32_t qpnp_adc_scale_therm_pu2(struct qpnp_vadc_chip *chip,
 							* 1000);
 		therm_voltage = div64_s64(therm_voltage,
 				(adc_properties->full_scale_code * 1000));
+        /* ref_voltage=1.875v, board[quiet-thermal], NTC: NCP15WF104F03RC */
+		qpnp_adc_map_voltage_temp(adcmap_NCP15WF104F03RC_1_875V,
+                                  ARRAY_SIZE(adcmap_NCP15WF104F03RC_1_875V),
+                                  therm_voltage, &adc_chan_result->physical);
 
-		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb_1875_vref,
-			ARRAY_SIZE(adcmap_100k_104ef_104fb_1875_vref),
-			therm_voltage, &adc_chan_result->physical);
+        /* printk("[yandingjiang][board_temperature = %d] [%s][%d] \n", (int)adc_chan_result->physical, __func__, __LINE__); */
 	} else {
 		qpnp_adc_scale_with_calib_param(adc_code,
 			adc_properties, chan_properties, &therm_voltage);
 
 		if (chan_properties->calib_type == CALIB_ABSOLUTE)
 			therm_voltage = div64_s64(therm_voltage, 1000);
-
-		qpnp_adc_map_voltage_temp(adcmap_100k_104ef_104fb,
-			ARRAY_SIZE(adcmap_100k_104ef_104fb),
-			therm_voltage, &adc_chan_result->physical);
+                /* ref_voltage=1.8v, pa_therm0, xo_thermal, msm-thermal[pm439-pin-mpp4], NTC: NCP15WF104F03RC */
+		qpnp_adc_map_voltage_temp(adcmap_NCP15WF104F03RC,
+                                  ARRAY_SIZE(adcmap_NCP15WF104F03RC),
+                                  therm_voltage, &adc_chan_result->physical);
 	}
 
 	return 0;
 }
 EXPORT_SYMBOL(qpnp_adc_scale_therm_pu2);
+
+int32_t qpnp_adc_scale_therm_572(struct qpnp_vadc_chip *chip,
+               int32_t adc_code,
+               const struct qpnp_adc_properties *adc_properties,
+               const struct qpnp_vadc_chan_properties *chan_properties,
+               struct qpnp_vadc_result *adc_chan_result)
+{
+       int64_t therm_voltage = 0;
+
+       if (!chan_properties || !chan_properties->offset_gain_numerator ||
+               !chan_properties->offset_gain_denominator || !adc_properties)
+               return -EINVAL;
+
+       /* for test feature. */
+       if(temp_test_feature_status()){
+               adc_chan_result->physical = fake_board_temp;
+               return 0;
+       }
+
+       qpnp_adc_scale_with_calib_param(adc_code,
+               adc_properties, chan_properties, &therm_voltage);
+
+       if (chan_properties->calib_type == CALIB_ABSOLUTE)
+               therm_voltage = div64_s64(therm_voltage, 1000);
+                /* ref_voltage=1.8v, skin-therm-adc, pa-therm0-adc, NTC: NCP15WF104F03RC */
+               qpnp_adc_map_voltage_temp(adcmap_NCP15WF104F03RC_572,
+                                  ARRAY_SIZE(adcmap_NCP15WF104F03RC_572),
+                                  therm_voltage, &adc_chan_result->physical);
+       //printk("[luojianhao][temp = %d][voltage = %d][%s][%d] \n", (int)adc_chan_result->physical, (int)therm_voltage, __func__, __LINE__);
+       return 0;
+}
+EXPORT_SYMBOL(qpnp_adc_scale_therm_572);
 
 int32_t qpnp_adc_tm_scale_voltage_therm_pu2(struct qpnp_vadc_chip *chip,
 		const struct qpnp_adc_properties *adc_properties,

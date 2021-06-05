@@ -21,6 +21,7 @@
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#define MY_CDBG(fmt, args...) pr_info(fmt, ##args)
 
 static struct msm_camera_i2c_fn_t msm_sensor_cci_func_tbl;
 static struct msm_camera_i2c_fn_t msm_sensor_secure_func_tbl;
@@ -116,7 +117,7 @@ int32_t msm_sensor_free_sensor_data(struct msm_sensor_ctrl_t *s_ctrl)
 	kfree(s_ctrl->sensordata);
 	return 0;
 }
-
+uint16_t sensor_addr_self = 0; 
 int msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	struct msm_camera_power_ctrl_t *power_info;
@@ -135,6 +136,8 @@ int msm_sensor_power_down(struct msm_sensor_ctrl_t *s_ctrl)
 	power_info = &s_ctrl->sensordata->power_info;
 	sensor_device_type = s_ctrl->sensor_device_type;
 	sensor_i2c_client = s_ctrl->sensor_i2c_client;
+	sensor_addr_self = s_ctrl->sensordata->slave_info->sensor_slave_addr;
+	MY_CDBG("lxy sensor power down name %s", s_ctrl->sensordata->sensor_name);
 
 	if (!power_info || !sensor_i2c_client) {
 		pr_err("%s:%d failed: power_info %pK sensor_i2c_client %pK\n",
@@ -172,6 +175,8 @@ int msm_sensor_power_up(struct msm_sensor_ctrl_t *s_ctrl)
 	sensor_i2c_client = s_ctrl->sensor_i2c_client;
 	slave_info = s_ctrl->sensordata->slave_info;
 	sensor_name = s_ctrl->sensordata->sensor_name;
+	sensor_addr_self = s_ctrl->sensordata->slave_info->sensor_slave_addr;
+	MY_CDBG("lxy sensor power up name %s", sensor_name);
 
 	if (!power_info || !sensor_i2c_client || !slave_info ||
 		!sensor_name) {
@@ -245,6 +250,7 @@ static uint16_t msm_sensor_id_by_mask(struct msm_sensor_ctrl_t *s_ctrl,
 	return sensor_id;
 }
 
+unsigned depth_camera_id = 0;
 int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
@@ -290,6 +296,17 @@ int msm_sensor_match_id(struct msm_sensor_ctrl_t *s_ctrl)
 	} else {
 		CDBG("No writes needed for this sensor before probe\n");
 	}
+    CDBG("s_ctrl->id(%d)  sensor_name(%s)  depth_camera_id(%d)",s_ctrl->id, s_ctrl->sensordata->sensor_name ,depth_camera_id);
+    if(s_ctrl->id == CAMERA_2){
+		CDBG("depth_sensor_name(%s)",s_ctrl->sensordata->sensor_name);
+		if(!gpio_get_value_cansleep(depth_camera_id) && !strcmp(s_ctrl->sensordata->sensor_name,"gc2375_cxt")){
+			CDBG("depth_camera_id(%d)",depth_camera_id);
+		} else if(gpio_get_value_cansleep(depth_camera_id) && !strcmp(s_ctrl->sensordata->sensor_name,"gc2375_lh")){
+			CDBG("depth_camera_id(%d)",depth_camera_id);
+		} else {
+			return -ENODEV;
+		}
+    }
 
 	rc = sensor_i2c_client->i2c_func_tbl->i2c_read(
 		sensor_i2c_client, slave_info->sensor_id_reg_addr,

@@ -102,6 +102,7 @@ enum {
 #define JEITA_EN_COLD_SL_FCV_BIT		BIT(2)
 #define JEITA_EN_HOT_SL_CCC_BIT			BIT(1)
 #define JEITA_EN_COLD_SL_CCC_BIT		BIT(0)
+#define JEITA_EN_HARDLIMIT_BIT                  BIT(4)
 
 #define JEITA_CCCOMP_CFG_HOT_REG		(CHGR_BASE + 0x92)
 #define JEITA_CCCOMP_CFG_COLD_REG		(CHGR_BASE + 0x93)
@@ -263,6 +264,8 @@ enum {
 
 #define USBIN_5V_AICL_THRESHOLD_REG		(USBIN_BASE + 0x81)
 #define USBIN_CONT_AICL_THRESHOLD_REG		(USBIN_BASE + 0x84)
+
+#define USBIN_AICL_PERIODIC_RERUN_EN_BIT	BIT(4)
 /********************************
  *  DCIN Peripheral Registers   *
  ********************************/

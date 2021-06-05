@@ -63,7 +63,11 @@ static void scm_disable_sdi(void);
  * There is no API from TZ to re-enable the registers.
  * So the SDI cannot be re-enabled when it already by-passed.
  */
+#ifdef WT_FINAL_RELEASE
+static int download_mode = 0;
+#else
 static int download_mode = 1;
+#endif
 #else
 static const int download_mode;
 #endif
@@ -167,6 +171,7 @@ static bool get_dload_mode(void)
 
 static void enable_emergency_dload_mode(void)
 {
+#ifndef WT_FINAL_RELEASE
 	int ret;
 
 	if (emergency_dload_mode_addr) {
@@ -190,6 +195,9 @@ static void enable_emergency_dload_mode(void)
 	ret = scm_set_dload_mode(SCM_EDLOAD_MODE, 0);
 	if (ret)
 		pr_err("Failed to set secure EDLOAD mode: %d\n", ret);
+#else
+	pr_err("Failed to set secure EDLOAD mode.\n");
+#endif
 }
 
 static int dload_set(const char *val, const struct kernel_param *kp)

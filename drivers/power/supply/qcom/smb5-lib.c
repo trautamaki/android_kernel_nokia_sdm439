@@ -28,6 +28,77 @@
 #include "storm-watch.h"
 #include "schgm-flash.h"
 
+#include <linux/qpnp/qpnp-adc.h>
+
+#define BATT_TYPE_FCC_VOTER     "BATT_TYPE_FCC_VOTER"
+#define BATTCHG_USER_EN_VOTER   "BATTCHG_USER_EN_VOTER"
+
+#define BATT_CC_0MA         0
+#define BATT_CC_500MA       500000
+#define BATT_CC_700MA       700000
+#define BATT_CC_800MA       800000
+#define BATT_CC_900MA       900000
+#define BATT_CC_1000MA      1000000
+#define BATT_CC_1100MA      1100000
+#define BATT_CC_1200MA      1200000
+#define BATT_CC_1400MA      1400000
+#define BATT_CC_1800MA      1800000
+#define BATT_CC_2000MA      2000000
+
+#define BATT_MAX_VOLTAGE_UNDER_HOT 4100000
+
+#ifdef CONFIG_PROJECT_T89626
+#define BATTERY_COLD_TEMP 	1
+#define BATTERY_COOL_TEMP 	16
+#define BATTERY_WARM_TEMP	43
+#define BATTERY_HOT_TEMP	48
+
+#define BOARD_GOOD_TEMP     42
+#define BOARD_WARM_TEMP     46
+#define BOARD_HOT_TEMP      49
+
+#define BATT_COLD_FCC	BATT_CC_0MA
+#define BATT_COOL_FCC	BATT_CC_700MA
+#define BATT_GOOD_FCC	BATT_CC_2000MA
+#define BATT_WARM_FCC	BATT_CC_1200MA
+#define BATT_HOT_FCC	BATT_CC_0MA
+
+#define BOARD_GOOD_FCC	BATT_CC_2000MA
+#define BOARD_WARM_FCC	BATT_CC_1400MA
+#define BOARD_HOT_FCC	BATT_CC_1200MA
+
+#define BATT_WARM_FV	4100000
+#else
+#define BATTERY_COLD_TEMP 	1
+#define BATTERY_COOL_TEMP 	16
+#define BATTERY_WARM_TEMP	45
+#define BATTERY_HOT_TEMP	57
+
+#define BOARD_GOOD_TEMP     44
+#define BOARD_WARM_TEMP     43
+#define BOARD_HOT_TEMP      60
+
+#define BATT_COLD_FCC	BATT_CC_0MA
+#define BATT_COOL_FCC	BATT_CC_900MA
+#define BATT_GOOD_FCC	BATT_CC_1200MA
+#define BATT_WARM_FCC	BATT_CC_1000MA
+#define BATT_HOT_FCC	BATT_CC_0MA
+
+#define BOARD_GOOD_FCC	BATT_CC_1200MA
+#define BOARD_WARM_FCC	BATT_CC_1200MA
+#define BOARD_HOT_FCC	BATT_CC_1200MA
+
+#define BATT_WARM_FV	4100000
+#endif
+
+#define BOARD_TEMP_DEFAULT  25
+#define MSM_TEMP_DEFAULT    25
+
+static atomic_t TEMP_TEST_FEATURE;
+static int usb_source_changed_flag = 0;
+static bool powerOnFirstTime = true;
+extern bool lcd_is_on(void);
+
 #define smblib_err(chg, fmt, ...)		\
 	pr_err("%s: %s: " fmt, chg->name,	\
 		__func__, ##__VA_ARGS__)	\
@@ -203,8 +274,8 @@ int smblib_get_charge_param(struct smb_charger *chg,
 		*val_u = param->get_proc(param, val_raw);
 	else
 		*val_u = val_raw * param->step_u + param->min_u;
-	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
-		   param->name, *val_u, val_raw);
+	smblib_dbg(chg, PR_REGISTER, "reg: (0x%02x): %s = %d (0x%02x)\n",
+		   param->reg, param->name, *val_u, val_raw);
 
 	return rc;
 }
@@ -442,8 +513,8 @@ int smblib_set_charge_param(struct smb_charger *chg,
 		return rc;
 	}
 
-	smblib_dbg(chg, PR_REGISTER, "%s = %d (0x%02x)\n",
-		   param->name, val_u, val_raw);
+	smblib_dbg(chg, PR_REGISTER, "reg: (0x%02x): %s = %d (0x%02x)\n",
+		   param->reg, param->name, val_u, val_raw);
 
 	return rc;
 }
@@ -1896,7 +1967,8 @@ int smblib_disable_hw_jeita(struct smb_charger *chg, bool disable)
 	mask = JEITA_EN_COLD_SL_FCV_BIT
 		| JEITA_EN_HOT_SL_FCV_BIT
 		| JEITA_EN_HOT_SL_CCC_BIT
-		| JEITA_EN_COLD_SL_CCC_BIT,
+		| JEITA_EN_COLD_SL_CCC_BIT
+		| JEITA_EN_HARDLIMIT_BIT,
 	rc = smblib_masked_write(chg, JEITA_EN_CFG_REG, mask,
 			disable ? 0 : mask);
 	if (rc < 0) {
@@ -4348,6 +4420,304 @@ out:
 	chg->jeita_configured = true;
 }
 
+static char androidbootmode[20] = {'\0'};
+static int __init androidboot_mode_param(char *line)
+{
+	strlcpy(androidbootmode, line, sizeof(androidbootmode));
+	return 1;
+}
+__setup("androidboot.mode=", androidboot_mode_param);
+
+bool isAndroidBootModeInCharging(void)
+{
+	static const char str[] = "charger";
+	return !strncmp(androidbootmode, str, sizeof(str));
+}
+
+int smblib_get_prop_batt_temp(struct smb_charger *chg,
+                              union power_supply_propval *val)
+{
+	int rc;
+
+	if (!chg->bms_psy)
+		return -EINVAL;
+
+	rc = power_supply_get_property(chg->bms_psy,
+                                   POWER_SUPPLY_PROP_TEMP, val);
+
+	return rc;
+}
+
+#ifdef CONFIG_PROJECT_T89572
+int get_board_temp(struct smb_charger *chip)
+{
+	return 30;
+}
+#else
+int get_board_temp(struct smb_charger *chip)
+{
+	int rc;
+	struct qpnp_vadc_result board_temp_result;
+
+//+chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
+#ifdef CONFIG_DISABLE_TEMP_PROTECT
+	return 25;
+#endif
+//-chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
+	rc = qpnp_vadc_read(chip->board_temp_vadc_dev,
+                        VADC_AMUX2_GPIO_PU2, &board_temp_result);
+	if (rc) {
+		pr_err("[THERMAL] error in board_temp (channel-%d) read rc = %d\n",
+               VADC_AMUX2_GPIO_PU2, rc);
+		return BOARD_TEMP_DEFAULT;
+	}
+
+	return board_temp_result.physical/1000;
+}
+#endif
+
+int temp_test_feature_status(void)
+{
+    return atomic_read(&TEMP_TEST_FEATURE);
+}
+EXPORT_SYMBOL(temp_test_feature_status);
+
+void temp_test_feature_enable(bool on)
+{
+    atomic_set(&TEMP_TEST_FEATURE, on);
+}
+EXPORT_SYMBOL(temp_test_feature_enable);
+
+static int recharge_after_poweron(struct power_supply* batt_psy)
+{
+	union power_supply_propval prop = {0};
+
+	if(!batt_psy)
+		return 0;
+
+	power_supply_get_property(batt_psy, POWER_SUPPLY_PROP_STATUS, &prop);
+	if( prop.intval == POWER_SUPPLY_STATUS_FULL) {
+		prop.intval = 0;
+		power_supply_set_property(batt_psy, POWER_SUPPLY_PROP_RECHARGE_SOC, &prop);
+	}
+
+	return 0;
+}
+
+/* Function chg_protection_with_thermal for regulating charging current. */
+static int chg_protection_with_thermal(struct smb_charger *chip)
+{
+	int rc = 0;
+	int bat_temp, board_temp; /* These are the temperatures of battery and board */
+	int bat_current = 0, bat_current1 = 0, bat_current2 = 0;
+#ifdef CONFIG_PROJECT_T89626
+	int usb_current =0;
+#endif
+	int icl_current =0;
+	bool usb_present;
+	bool usb_online;
+	bool warm_fv_flags = false;
+	union power_supply_propval pval = {0};
+	int batt_status, charge_type;
+	struct power_supply* psy = chip->batt_psy;
+	struct power_supply* usb_psy = chip->usb_psy;
+
+	int batt_voltage_now = 0;
+	int batt_current_now = 0;
+	int usb_current_now  = 0;
+
+	smblib_get_prop_batt_status(chip, &pval);
+	batt_status = pval.intval;
+	smblib_get_prop_batt_charge_type(chip, &pval);
+	charge_type = pval.intval;
+
+	smblib_get_prop_usb_present(chip, &pval);
+	usb_present = pval.intval;
+
+	smblib_get_prop_usb_online(chip, &pval);
+	usb_online = pval.intval;
+
+	if(!usb_present)
+		return 0;
+
+	board_temp = get_board_temp(chip);
+	smblib_get_prop_batt_temp(chip, &pval);
+	bat_temp = pval.intval/10;
+
+	rc = power_supply_get_property(psy, POWER_SUPPLY_PROP_VOLTAGE_NOW, &pval);
+	if (rc >= 0) {
+		batt_voltage_now = pval.intval; /* Failure must not happen. */
+	} else {
+		pr_err("[%s] obtain battery voltage failed : %d \n", __func__, rc);
+		batt_voltage_now = BATT_MAX_VOLTAGE_UNDER_HOT;
+	            /* This is a default maximum value which a battery
+	            can be charged to reach in uv, and it is also under
+	            the safety when temperature of battery is at bwtween
+	            45 and 60 degrees. */
+	}
+
+	power_supply_get_property(psy, POWER_SUPPLY_PROP_CURRENT_NOW, &pval);
+	batt_current_now = pval.intval;
+	power_supply_get_property(usb_psy, POWER_SUPPLY_PROP_INPUT_CURRENT_NOW, &pval);
+	usb_current_now = pval.intval;
+	if (bat_temp <= BATTERY_COLD_TEMP) {
+		bat_current1 = BATT_COLD_FCC;
+		warm_fv_flags = false;
+	} else if (BATTERY_COLD_TEMP < bat_temp && bat_temp <= BATTERY_COOL_TEMP) { // 0 - 10
+		bat_current1 = BATT_COOL_FCC;
+		warm_fv_flags = false;
+	} else if (BATTERY_COOL_TEMP < bat_temp && bat_temp < BATTERY_WARM_TEMP) { // 10 - 45
+		bat_current1 = BATT_GOOD_FCC;
+		warm_fv_flags = false;
+	} else if (BATTERY_WARM_TEMP <= bat_temp && bat_temp < BATTERY_HOT_TEMP) { // 45 - 60
+		bat_current1 = BATT_WARM_FCC;
+//		if(batt_voltage_now >= BATT_MAX_VOLTAGE_UNDER_HOT) // Maximum is limited to 4.1v
+//			bat_current1 = BATT_HOT_FCC;
+		warm_fv_flags = true;
+	} else {
+	    /* bat_temp >= 60 */
+		bat_current1 = BATT_HOT_FCC;
+		warm_fv_flags = true;
+	}
+
+	if(warm_fv_flags) {
+                chip->batt_profile_fv_uv = BATT_WARM_FV;
+                vote(chip->fv_votable, CUST_JEITA_VOTER, true, BATT_WARM_FV);
+	} else {
+		chip->batt_profile_fv_uv = 4400000;
+		vote(chip->fv_votable, CUST_JEITA_VOTER, false, 0);
+	}
+	bat_current = bat_current1;
+
+#ifdef CONFIG_PROJECT_T89626
+	/* board temperature is no longer needed here for adjusting charging current. */
+	if (BATTERY_COOL_TEMP < bat_temp && bat_temp < BATTERY_WARM_TEMP) { // 15 - 45
+		if (board_temp < BOARD_GOOD_TEMP) {
+			usb_current = BOARD_GOOD_FCC;
+		} else if (BOARD_GOOD_TEMP <= board_temp && board_temp < BOARD_WARM_TEMP) {
+			usb_current = BOARD_WARM_FCC;
+		} else if (BOARD_WARM_TEMP <= board_temp && board_temp < BOARD_HOT_TEMP) {
+			usb_current = BOARD_HOT_FCC;
+		} else {
+			usb_current = BOARD_HOT_FCC;
+		}
+	} else if (BATTERY_WARM_TEMP <= bat_temp && bat_temp < BATTERY_HOT_TEMP) {// 45 - 50
+		usb_current = BOARD_HOT_FCC;
+	} else {
+		usb_current = BOARD_GOOD_FCC;
+	}
+
+	if ((usb_current != chip->last_bat_current) || usb_source_changed_flag) {
+		pr_err("[%s] board_temp = %d, bat_temp = %d, usb_current = %d, last_bat_current = %d, \n",
+			__func__, board_temp, bat_temp, usb_current, chip->last_bat_current);
+		chip->last_usb_current = usb_current;
+		vote(chip->usb_icl_votable, SW_ICL_MAX_VOTER, true,
+						usb_current);
+		if(rc < 0) {
+			pr_err("[%s] Could not vote charger usb_icl_votable \n", __func__);
+		}
+	}
+#else
+	/* Regulating the battery Fast charging current
+	 * according to board temperature with lcd status.
+	 */
+	if(lcd_is_on()) {
+		if(0 <= board_temp && board_temp < BOARD_WARM_TEMP) { // 0 - 43
+			bat_current2 = BATT_CC_1200MA;
+		} else if (BOARD_WARM_TEMP <= board_temp && board_temp < BOARD_HOT_TEMP) { // 43 - 60
+			bat_current2 = BATT_CC_900MA;
+		} else if (BOARD_HOT_TEMP <= board_temp) { // >= 60
+			bat_current2 = BATT_CC_0MA;
+		} else { // < 0
+			bat_current2 = BATT_CC_1200MA;
+		}
+
+		bat_current = min(bat_current1, bat_current2);
+	}
+#endif
+
+	/* This is only for shutdown charging. */
+	if(isAndroidBootModeInCharging()) {
+		if (chip->real_charger_type == POWER_SUPPLY_TYPE_USB
+		&& (chip->typec_legacy
+		|| chip->typec_mode == POWER_SUPPLY_TYPEC_SOURCE_DEFAULT
+		|| chip->connector_type == POWER_SUPPLY_CONNECTOR_MICRO_USB)) {
+			smblib_get_prop_input_current_settled(chip, &pval);
+			printk("[Shutdown-Charging] settled input current limit : %d \n", pval.intval);
+			if(pval.intval < USBIN_500MA){
+				pval.intval = USBIN_500MA;
+				smblib_set_icl_current(chip, pval.intval);
+			}
+		}
+	}
+
+	/* The protection has been established for a particular
+	case which the phone cannot get into charging state,
+	with the level of battery power around 95% or beyond
+	, would frequently happen. */
+	if(powerOnFirstTime){
+		recharge_after_poweron(psy);
+		powerOnFirstTime = false;
+	}
+
+	/* This would only happen when something goes wrong with charing. */
+	/*if(charge_type == POWER_SUPPLY_CHARGE_TYPE_NONE   &&
+	batt_status == POWER_SUPPLY_STATUS_DISCHARGING &&
+	usb_present){
+        // restarting battery charging.
+        pval.intval = 0;
+        pr_err("[%s], restart charging \n", __func__);
+        smblib_set_prop_input_suspend(chip, &pval);
+	}*/
+
+	if ((bat_current != chip->last_bat_current) || usb_source_changed_flag) {
+		pr_err("[%s] bat_current = %d, current1 = %d, current2 = %d , board_temp = %d, bat_temp = %d, last_bat_current = %d \n",
+			__func__, bat_current, bat_current1, bat_current2, board_temp, bat_temp, chip->last_bat_current);
+
+		pr_err("[%s] batt_voltage_now = %d, batt_current_now = %d, input_usb_current_now = %d \n",
+			__func__, batt_voltage_now, batt_current_now, usb_current_now);
+
+		pr_err("[%s] batt_status = %d, charge type = %d, usb online = %d \n",
+			__func__, batt_status, charge_type, usb_online);
+
+		rc = vote(chip->fcc_votable, BATT_TYPE_FCC_VOTER, true, bat_current);
+		if(rc < 0)
+			pr_err("[%s] Could not vote charger fcc_votable \n", __func__);
+
+		rc = vote(chip->chg_disable_votable, BATTCHG_USER_EN_VOTER, (bat_current == 0) ? true : false, 0);
+		if (rc < 0) {
+			dev_err(chip->dev, "[%s] Could not set battchg suspend rc %d\n", __func__, rc);
+		}
+
+		chip->last_bat_current = bat_current;
+		usb_source_changed_flag = 0;
+    }
+
+	rc = smblib_get_charge_param(chip, &chip->param.icl_stat,
+				&icl_current);
+	if (rc < 0) {
+		smblib_err(chip, "Couldn't get ICL status rc=%d\n", rc);
+	}
+	pr_err("[%s] board_temp = %d, bat_temp = %d, icl_current = %d, chip->batt_profile_fv_uv = %d\n",
+		__func__, board_temp, bat_temp, icl_current, chip->batt_profile_fv_uv);
+
+	return rc;
+}
+
+/* charging current limitation for projection according to temperature. */
+static void period_2s_of_thermal_protection(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct smb_charger *chip = container_of(dwork,
+                                            struct smb_charger, period_2s_work);
+    if(!isStopcharging()){
+        chg_protection_with_thermal(chip);
+    }
+
+	schedule_delayed_work(&chip->period_2s_work,
+                          round_jiffies_relative(msecs_to_jiffies(2000)));
+}
+
 static int smblib_create_votables(struct smb_charger *chg)
 {
 	int rc = 0;
@@ -4458,6 +4828,11 @@ int smblib_init(struct smb_charger *chg)
 	INIT_DELAYED_WORK(&chg->bb_removal_work, smblib_bb_removal_work);
 	INIT_DELAYED_WORK(&chg->usbov_dbc_work, smblib_usbov_dbc_work);
 
+	temp_test_feature_enable(0);
+	chg->last_bat_current = 0;
+	INIT_DELAYED_WORK(&chg->period_2s_work, period_2s_of_thermal_protection); /* updating with 2 seconds for charging projection with temperature. */
+	schedule_delayed_work(&chg->period_2s_work, round_jiffies_relative(msecs_to_jiffies(2000)));
+
 	if (chg->wa_flags & CHG_TERMINATION_WA) {
 		INIT_WORK(&chg->chg_termination_work,
 					smblib_chg_termination_work);
@@ -4537,6 +4912,18 @@ int smblib_init(struct smb_charger *chg)
 	default:
 		smblib_err(chg, "Unsupported mode %d\n", chg->mode);
 		return -EINVAL;
+	}
+	if(!isBatteryVaild()) {
+		rc = vote(chg->fcc_votable, BATT_TYPE_FCC_VOTER, true, BATT_CC_0MA);
+		if(rc < 0)
+			pr_err("[%s] Could not vote charger fcc_votable \n", __func__);
+
+		rc = vote(chg->chg_disable_votable, BATTCHG_USER_EN_VOTER, true, 0);
+		if (rc < 0)
+			dev_err(chg->dev, "[%s] Could not set battchg suspend rc %d\n", __func__, rc);
+
+		pr_err("[%s] No battery valid \n", __func__);
+		cancel_delayed_work(&chg->period_2s_work);
 	}
 
 	return rc;

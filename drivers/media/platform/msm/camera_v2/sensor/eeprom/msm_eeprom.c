@@ -419,8 +419,8 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 					gc < eeprom_map->mem_settings[i].
 						reg_data;
 					gc++) {
-					msleep(eeprom_map->mem_settings[i].
-						delay);
+                                       //msleep(eeprom_map->mem_settings[i].
+                                       //	delay);
 					rc = e_ctrl->i2c_client.i2c_func_tbl->
 						i2c_read(
 						&(e_ctrl->i2c_client),
@@ -437,6 +437,8 @@ static int eeprom_parse_memory_map(struct msm_eeprom_ctrl_t *e_ctrl,
 					*memptr = (uint8_t)gc_read;
 					memptr++;
 				}
+                               msleep(eeprom_map->mem_settings[i].
+                                      delay);
 			}
 			break;
 

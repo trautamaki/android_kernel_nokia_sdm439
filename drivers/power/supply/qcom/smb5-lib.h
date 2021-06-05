@@ -60,6 +60,7 @@ enum print_reason {
 #define SW_ICL_MAX_VOTER		"SW_ICL_MAX_VOTER"
 #define QNOVO_VOTER			"QNOVO_VOTER"
 #define BATT_PROFILE_VOTER		"BATT_PROFILE_VOTER"
+#define CUST_JEITA_VOTER		"CUST_JEITA_VOTER"
 #define OTG_DELAY_VOTER			"OTG_DELAY_VOTER"
 #define USBIN_I_VOTER			"USBIN_I_VOTER"
 #define WEAK_CHARGER_VOTER		"WEAK_CHARGER_VOTER"
@@ -82,7 +83,13 @@ enum print_reason {
 #define SDP_100_MA			100000
 #define SDP_CURRENT_UA			500000
 #define CDP_CURRENT_UA			1500000
-#define DCP_CURRENT_UA			1500000
+
+#ifdef CONFIG_PROJECT_T89626
+#define DCP_CURRENT_UA			2000000
+#else
+#define DCP_CURRENT_UA			1000000
+#endif
+
 #define HVDCP_CURRENT_UA		3000000
 #define TYPEC_DEFAULT_CURRENT_UA	900000
 #define TYPEC_MEDIUM_CURRENT_UA		1500000
@@ -360,6 +367,11 @@ struct smb_charger {
 	struct alarm		moisture_protection_alarm;
 	struct alarm		chg_termination_alarm;
 
+	int last_bat_current;
+	int last_usb_current;
+	struct qpnp_vadc_chip	*board_temp_vadc_dev; /* it is for obtaining board temperature. */
+	struct delayed_work	    period_2s_work; /* updating with 2 seconds for charging projection with temperature. */
+
 	/* pd */
 	int			voltage_min_uv;
 	int			voltage_max_uv;
@@ -597,4 +609,12 @@ int smblib_icl_override(struct smb_charger *chg, bool override);
 
 int smblib_init(struct smb_charger *chg);
 int smblib_deinit(struct smb_charger *chg);
+
+extern int isStopcharging(void);
+extern void fake_temp_set(int temp1, int temp2);
+extern void fake_temp_get(int* temp1, int* temp2);
+
+extern void temp_test_feature_enable(bool on);
+extern int temp_test_feature_status(void);
+
 #endif /* __SMB5_CHARGER_H */

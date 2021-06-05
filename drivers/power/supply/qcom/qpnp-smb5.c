@@ -30,6 +30,9 @@
 #include "smb5-lib.h"
 #include "schgm-flash.h"
 
+static int stopcharging_flag = 0;
+struct smb_charger  *smb_chg;	//modify by pingao.yang, pr-420619
+void battery_charging_test_init(struct device *dev);
 static struct smb_params smb5_pmi632_params = {
 	.fcc			= {
 		.name   = "fast charge current",
@@ -421,6 +424,11 @@ static int smb5_parse_dt(struct smb5 *chip)
 
 	rc = of_property_read_u32(node, "qcom,chg-term-current-ma",
 			&chip->dt.term_current_thresh_hi_ma);
+
+    /* It ought to be a negative number. */
+#ifndef CONFIG_PROJECT_T89626
+	chip->dt.term_current_thresh_hi_ma = -1 * chip->dt.term_current_thresh_hi_ma;
+#endif
 
 	if (chip->dt.term_current_src == ITERM_SRC_ADC)
 		rc = of_property_read_u32(node, "qcom,chg-term-base-current-ma",
@@ -1324,6 +1332,11 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		rc = smblib_get_prop_batt_health(chg, val);
+//+chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
+	#ifdef CONFIG_DISABLE_TEMP_PROTECT
+		val->intval = POWER_SUPPLY_HEALTH_GOOD;
+	#endif
+//-chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
 		break;
 	case POWER_SUPPLY_PROP_PRESENT:
 		rc = smblib_get_prop_batt_present(chg, val);
@@ -1340,6 +1353,13 @@ static int smb5_batt_get_prop(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CAPACITY:
 		rc = smblib_get_prop_batt_capacity(chg, val);
+//+chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
+	#ifdef CONFIG_DISABLE_TEMP_PROTECT
+		if (val->intval < 4) {
+			val->intval = 3;
+		}
+	#endif
+//-chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_CONTROL_LIMIT:
 		rc = smblib_get_prop_system_temp_level(chg, val);
@@ -1577,6 +1597,11 @@ static int smb5_init_batt_psy(struct smb5 *chip)
 		pr_err("Couldn't register battery power supply\n");
 		return PTR_ERR(chg->batt_psy);
 	}
+
+    if(chg->batt_psy){
+        battery_charging_test_init(&chg->batt_psy->dev);
+        pr_err("battery_charging_test_init \n");
+    }
 
 	return rc;
 }
@@ -1816,13 +1841,11 @@ static int smb5_configure_mitigation(struct smb_charger *chg)
 
 	if (chg->hw_connector_mitigation) {
 		chan |= CONN_THM_CHANNEL_EN_BIT;
-		src_cfg |= THERMREG_CONNECTOR_ADC_SRC_EN_BIT;
 	}
 
 	rc = smblib_masked_write(chg, MISC_THERMREG_SRC_CFG_REG,
 			THERMREG_SW_ICL_ADJUST_BIT | THERMREG_DIE_ADC_SRC_EN_BIT
-			| THERMREG_DIE_CMP_SRC_EN_BIT
-			| THERMREG_CONNECTOR_ADC_SRC_EN_BIT, src_cfg);
+			| THERMREG_DIE_CMP_SRC_EN_BIT, src_cfg); 
 	if (rc < 0) {
 		dev_err(chg->dev,
 				"Couldn't configure THERM_SRC reg rc=%d\n", rc);
@@ -1923,6 +1946,7 @@ static int smb5_configure_iterm_thresholds(struct smb5 *chip)
 	return rc;
 }
 
+#define JEITA_EN_HARDLIMIT_BIT          BIT(4)
 static int smb5_init_hw(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -2066,14 +2090,14 @@ static int smb5_init_hw(struct smb5 *chip)
 	 * AICL configuration:
 	 * AICL ADC disable
 	 */
-	if (chg->smb_version != PMI632_SUBTYPE) {
-		rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
-				USBIN_AICL_ADC_EN_BIT, 0);
-		if (rc < 0) {
-			dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
-			return rc;
-		}
-	}
+        //if (chg->smb_version != PMI632_SUBTYPE) {
+        rc = smblib_masked_write(chg, USBIN_AICL_OPTIONS_CFG_REG,
+                        USBIN_AICL_ADC_EN_BIT | USBIN_AICL_PERIODIC_RERUN_EN_BIT, 0x10);
+        if (rc < 0) {
+                dev_err(chg->dev, "Couldn't config AICL rc=%d\n", rc);
+                return rc;
+        }
+        //}
 
 	/* enable the charging path */
 	rc = vote(chg->chg_disable_votable, DEFAULT_VOTER, false, 0);
@@ -2251,6 +2275,14 @@ static int smb5_init_hw(struct smb5 *chip)
 			return rc;
 		}
 	}
+//+chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
+	#ifdef CONFIG_DISABLE_TEMP_PROTECT
+	rc = smblib_masked_write(chg, JEITA_EN_CFG_REG, 0xFF,0);
+	if (rc < 0) {
+		dev_err(chg->dev, "Couldn't disable s/w jeita rc=%d\n",	rc);
+	}
+	#endif
+//-chk37807 shenwei2.wt, add, 19.11.04, add temp ctrl vrsion
 
 	rc = smblib_configure_wdog(chg,
 			chg->step_chg_enabled || chg->sw_jeita_enabled);
@@ -2760,6 +2792,143 @@ static void smb5_create_debugfs(struct smb5 *chip)
 
 #endif
 
+
+/* only for enabling and stoping battery charging. */
+int isStopcharging(void)
+{
+	return stopcharging_flag;
+}
+EXPORT_SYMBOL(isStopcharging);
+
+ssize_t StartCharging_Test_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+#if 0	//modify by pingao.yang, pr-420619
+	struct power_supply* psy = dev_get_drvdata(dev);
+    int rc = -1;
+    ssize_t ret;
+	union power_supply_propval value;
+	value.intval = 0;
+
+    rc = power_supply_set_property(psy, POWER_SUPPLY_PROP_INPUT_SUSPEND, &value);
+    if(rc < 0){
+        printk("[%s], rc:%d \n", __func__, rc);
+    }
+    ret = sprintf(buf, "%s\n", __func__);
+    stopcharging_flag = 0;
+#else
+	struct smb_charger *chg = smb_chg;
+	int chg_current;
+	ssize_t ret;
+
+	if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB) {
+		chg_current = SDP_CURRENT_UA;
+	} else if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_CDP) {
+		chg_current = CDP_CURRENT_UA;
+	} else if (chg->real_charger_type == POWER_SUPPLY_TYPE_USB_DCP) {
+		chg_current = DCP_CURRENT_UA;
+	} else {
+		chg_current = SDP_CURRENT_UA;
+	}
+
+	smblib_set_icl_current(chg, chg_current);
+	//smblib_set_charge_param(chg, &chg->param.usb_icl, chg_current);
+	stopcharging_flag = 0;
+	ret = sprintf(buf, "%s\n", __func__);
+#endif
+
+	return ret;
+}
+
+ssize_t StopCharging_Test_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+#if 0	//modify by pingao.yang, pr-420619
+	struct power_supply* psy = dev_get_drvdata(dev);
+    int rc = -1;
+    ssize_t ret;
+	union power_supply_propval value;
+	value.intval = 1;
+
+    rc = power_supply_set_property(psy, POWER_SUPPLY_PROP_INPUT_SUSPEND, &value);
+    if(rc < 0){
+        printk("[%s], rc:%d \n", __func__, rc);
+    }
+    ret = sprintf(buf, "%s\n", __func__);
+    stopcharging_flag = 1;
+#else
+	struct smb_charger *chg = smb_chg;
+	ssize_t ret;
+
+	smblib_set_icl_current(chg, 0);
+	//smblib_set_charge_param(chg, &chg->param.usb_icl, 100000);
+	stopcharging_flag = 1;
+	ret = sprintf(buf, "%s\n", __func__);
+#endif
+
+	return ret;
+}
+
+ssize_t fake_temp_charging_show(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	ssize_t ret;
+	int temp1 = 0, temp2 = 0;
+
+	fake_temp_get(&temp1, &temp2);
+	ret = sprintf(buf, "enable:%d, fake_batt_temp:%d, fake_board_temp:%d \n",
+	              temp_test_feature_status(), temp1, temp2);
+
+	return ret;
+}
+
+ssize_t fake_temp_charging_store(struct device *dev, struct device_attribute *attr,
+                                 const char *buf, size_t count)
+{
+	int fake_temp_batt = 0, fake_temp_board = 0;
+	char str[50] = {'\0'};
+
+	if(strncpy(str, buf, count) < 0)
+		return -1;
+
+	if(str[0] == '0'){
+		temp_test_feature_enable(0);
+	}else if(str[0] == '1'){
+		if(sscanf(str+1, "%d %d", &fake_temp_batt, &fake_temp_board) < 0)
+			return -1;
+		pr_err("yanjiang %s, %c, %d, %d \n", __func__, str[0], fake_temp_batt, fake_temp_board);
+		fake_temp_set(fake_temp_batt, fake_temp_board);
+		temp_test_feature_enable(1);
+	}
+
+	return count;
+}
+
+static struct device_attribute battery_test_attrs[] = {
+	__ATTR_RO(StartCharging_Test),
+	__ATTR_RO(StopCharging_Test),
+	__ATTR_RW(fake_temp_charging),
+};
+
+static struct attribute* __battery_test_attrs[ARRAY_SIZE(battery_test_attrs) + 1];
+static struct attribute_group battery_test_attr_group = {
+	.attrs = __battery_test_attrs,
+};
+static const struct attribute_group* battery_test_attr_groups[] = {
+	&battery_test_attr_group,
+	NULL,
+};
+
+void battery_charging_test_init(struct device *dev)
+{
+	int i = 0, rc = -1;
+
+	for(i=0; i<ARRAY_SIZE(battery_test_attrs); i++) {
+		__battery_test_attrs[i] = &battery_test_attrs[i].attr;
+	}
+	rc = sysfs_create_groups(&dev->kobj, battery_test_attr_groups);
+	if(rc < 0) {
+		printk("[battery-charging-test]: initial failed: %d \n", rc);
+	}
+}
+
 static int smb5_show_charger_status(struct smb5 *chip)
 {
 	struct smb_charger *chg = &chip->chg;
@@ -2812,6 +2981,7 @@ static int smb5_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	chg = &chip->chg;
+	smb_chg = chg;
 	chg->dev = &pdev->dev;
 	chg->debug_mask = &__debug_mask;
 	chg->pd_disabled = &__pd_disabled;
@@ -2827,6 +2997,14 @@ static int smb5_probe(struct platform_device *pdev)
 		pr_err("parent regmap is missing\n");
 		return -EINVAL;
 	}
+        chg->vadc_dev = qpnp_get_vadc(chg->dev, "chg");
+        chg->board_temp_vadc_dev = chg->vadc_dev;
+        if (IS_ERR(chg->board_temp_vadc_dev)) {
+            rc = PTR_ERR(chg->board_temp_vadc_dev);
+                if (rc != -EPROBE_DEFER)
+                    pr_err("[WT] Failed to find VADC node, rc=%d\n", rc);
+        return rc;
+        }
 
 	rc = smb5_chg_config_init(chip);
 	if (rc < 0) {

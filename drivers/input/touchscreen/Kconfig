@@ -1373,6 +1373,14 @@ config TOUCHSCREEN_SYNAPTICS_DSX
 
           If unsure, say N.
 
+config TOUCHSCREEN_FTS
+        bool "FT Touchscreen Driver"
+        depends on I2C
+        help
+          Say Y here if you have a Synaptics Touchscreen.
+
+          If unsure, say N.
+
 source "drivers/input/touchscreen/synaptics_dsx/Kconfig"
 source "drivers/input/touchscreen/focaltech_touch/Kconfig"
 
@@ -1433,6 +1441,7 @@ config TOUCHSCREEN_HIMAX_CHIPSET
           If unsure, say N.
 
 source "drivers/input/touchscreen/hxchipset/Kconfig"
+source "drivers/input/touchscreen/gt9xx/Kconfig"
 
 config TOUCHSCREEN_EKTF3XXX_CHIPSET
 	bool "Elan EKTF3XXX touchpanel CHIPSET"
@@ -1444,4 +1453,13 @@ config TOUCHSCREEN_EKTF3XXX_CHIPSET
 
 		  If unusre, say N.
 
+config TOUCHSCREEN_SINTRONIX_TS
+        bool "TOUCHSCREEN_SINTRONIX_TS"
+        depends on I2C
+        help
+          Say Y here if you have a TOUCHSCREEN_SINTRONIX_TS touchscreen.
+          Gt9xx controllers are multi touch controllers which can
+          report 5 touches at a time.
+
+          If unsure, say N.
 endif

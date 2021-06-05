@@ -23,6 +23,15 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+#include <linux/statfs.h>
+#include <linux/mount.h>
+#include "mount.h"
+#include <linux/mmc/mmc.h>
+
+#define CHECK_1TH  (52 * 1024 * 1024)
+#define CHECK_2TH  (50 * 1024 * 1024)
+long long store = 0;
+
 const struct file_operations generic_ro_fops = {
 	.llseek		= generic_file_llseek,
 	.read_iter	= generic_file_read_iter,
@@ -543,6 +552,66 @@ EXPORT_SYMBOL(__kernel_write);
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
+
+        struct kstatfs stat;
+        struct mount *mount_data;
+        struct dentry *tmp;
+        ssize_t ischeck = 0;
+        ssize_t num = 0;
+
+        mount_data = real_mount(file->f_path.mnt);
+        if (!memcmp(mount_data->mnt_mountpoint->d_name.name, "data", 5)) {
+           store -= count;
+           if (store <= CHECK_1TH){
+              vfs_statfs(&file->f_path, &stat);
+              store = stat.f_bavail* stat.f_bsize;
+              store -= count;
+              if (store <= CHECK_2TH){
+                 for (tmp = file->f_path.dentry ; tmp != file->f_path.mnt->mnt_root; tmp = tmp->d_parent){
+                     //.db
+                     if (strstr(tmp->d_name.name, ".db") ){
+                        break;
+                     }
+                     //systemxxx
+                     if (strstr(tmp->d_parent->d_name.name, "system") ){
+                        break;
+                     }
+                     //account
+                     if (strstr(tmp->d_name.name, ".prof") ){
+                        break;
+                     }
+                     //databases
+                     if (strstr(tmp->d_parent->d_name.name, "databases")){
+                        break;
+                     }
+                     //quick step
+                     if (strstr(tmp->d_parent->d_name.name, "launcher3") ||  strstr(tmp->d_name.name, "events")){
+                        break;
+                     }
+                     //for com.discoverScreen launcher
+                     if (  strstr(tmp->d_name.name, "_DB")  || strstr(tmp->d_name.name, "_database") ||  strstr(tmp->d_name.name, "LogsDB") ){
+                        break;
+                     }
+                     // .xml
+                     if (strstr(tmp->d_name.name, ".xml")){
+                        break;
+                     }
+                     //check if pid > 2000
+                     if (current->pid > 2000) {
+                        ischeck = 1;
+                        break;
+                     }
+                     num++;
+                     if (num >= 10) break;
+                 }
+
+                 if (ischeck == 1) {
+                    store += count;
+                    return -ENOSPC;
+                 }
+              }
+           }
+        }
 
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EBADF;

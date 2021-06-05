@@ -24,6 +24,7 @@
 
 #undef CDBG
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
+#define MY_CDBG(fmt, args...) pr_info(fmt, ##args)
 
 void msm_camera_io_w(u32 data, void __iomem *addr)
 {
@@ -745,7 +746,9 @@ vreg_set_voltage_fail:
 vreg_get_fail:
 	return -ENODEV;
 }
-
+extern unsigned depth_camera_id;
+extern unsigned rear_cam_avdd;
+extern uint16_t sensor_addr_self;
 int msm_camera_request_gpio_table(struct gpio *gpio_tbl, uint8_t size,
 	int gpio_en)
 {
@@ -757,8 +760,10 @@ int msm_camera_request_gpio_table(struct gpio *gpio_tbl, uint8_t size,
 		return -EINVAL;
 	}
 	for (i = 0; i < size; i++) {
-		CDBG("%s:%d i %d, gpio %d dir %ld\n", __func__, __LINE__, i,
-			gpio_tbl[i].gpio, gpio_tbl[i].flags);
+		if((rear_cam_avdd == 1) && (sensor_addr_self == 0x2e) && (gpio_tbl[i].gpio == 41)) //huangguoyong.wt,2020.02.19,modify criteria judgement standard
+			size -= 1;
+		MY_CDBG("lxy %s:%d i %d, gpio %d dir %ld, size %d\n", __func__, __LINE__, i,
+			gpio_tbl[i].gpio, gpio_tbl[i].flags, size);
 	}
 	if (gpio_en) {
 		for (i = 0; i < size; i++) {
@@ -774,9 +779,13 @@ int msm_camera_request_gpio_table(struct gpio *gpio_tbl, uint8_t size,
 					__func__, __LINE__,
 					gpio_tbl[i].gpio, gpio_tbl[i].label);
 			}
+                        if(!strcmp(gpio_tbl[i].label,"CAM_STANDBY1"))
+				depth_camera_id = gpio_tbl[i].gpio;
 		}
 	} else {
 		gpio_free_array(gpio_tbl, size);
+		if(sensor_addr_self != 0x2e) //rear camera
+			rear_cam_avdd = 0;
 	}
 	return rc;
 }

@@ -15,6 +15,11 @@
 #define ABS_MT_FIRST		ABS_MT_TOUCH_MAJOR
 #define ABS_MT_LAST		ABS_MT_TOOL_Y
 
+/* Cap sensor report key, including cs0, cs1, cs2 and comb */
+#define KEY_CAP_CS0     0x270
+#define KEY_CAP_CS1     0x271
+#define KEY_CAP_CS2     0x272
+#define KEY_CAP_COMB    0x272
 /*
  * In-kernel definitions.
  */

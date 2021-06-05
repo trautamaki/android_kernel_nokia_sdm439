@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,9 +11,6 @@
  * GNU General Public License for more details.
  */
 &cci {
-	#address-cells = <1>;
-	#size-cells = <0>;
-
 	actuator0: qcom,actuator@0 {
 		cell-index = <0>;
 		reg = <0x0>;
@@ -47,19 +44,22 @@
 				&cam_sensor_rear_sleep>;
 		gpios = <&tlmm 25 0>,
 			<&tlmm 26 0>,
-			<&tlmm 36 0>;
+			<&tlmm 36 0>,
+                        <&tlmm 35 0>;
 		qcom,gpio-reset = <2>;
 		qcom,gpio-vdig = <0>;
-		qcom,gpio-req-tbl-num = <0 1 2>;
-		qcom,gpio-req-tbl-flags = <0 1 0>;
+                qcom,gpio-standby = <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <0 1 0 0>;
 		qcom,gpio-req-tbl-label = "CAM_VDIG",
 			"CAMIF_MCLK0",
-			"CAM_RESET0";
+			"CAM_RESET0",
+			"CAMIF_STANDBY0";
 		status = "ok";
 		clocks = <&clock_gcc clk_mclk0_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk0_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
-		qcom,clock-rates = <19200000 0>;
+		qcom,clock-rates = <24000000 0>;
 	};
 
 	eeprom2: qcom,eeprom@2 {
@@ -90,14 +90,28 @@
 		qcom,gpio-req-tbl-flags = <1 0 0 >;
 		qcom,gpio-req-tbl-label = "CAM_VDIG",
 			"CAMIF_MCLK2",
-			"CAM_RESET2",
-			"CAM_STANDBY2";
+			"CAM_RESET2";
 		qcom,cci-master = <0>;
 		status = "ok";
 		clocks = <&clock_gcc clk_mclk2_clk_src>,
 			<&clock_gcc clk_gcc_camss_mclk2_clk>;
 		clock-names = "cam_src_clk", "cam_clk";
 		qcom,clock-rates = <19200000 0>;
+	};
+
+	flash0: qcom,camera-flash {
+		cell-index = <0>;
+		compatible = "qcom,qm215-gpio-flash";
+		qcom,flash-type = <2>;
+		gpios = <&tlmm 34 0>, //2019.11.2 JLQ modify for flash
+			<&tlmm 33 0>; //2019.11.2 JLQ modify for flash
+		qcom,gpio-req-tbl-num = <0 1>;
+		qcom,gpio-req-tbl-flags = <0 0>; //2019.11.2 JLQ modify for flash
+		qcom,gpio-flash-en = <0>;
+		qcom,gpio-flash-now = <1>;
+		qcom,gpio-req-tbl-label = "CAM_FLASH",
+				"CAM_TORCH";
+		status = "ok";
 	};
 
 	qcom,camera@0 {
@@ -107,6 +121,7 @@
 		qcom,csiphy-sd-index = <0>;
 		qcom,csid-sd-index = <0>;
 		qcom,mount-angle = <90>;
+		qcom,led-flash-src = <&flash0>;
 		qcom,actuator-src = <&actuator0>;
 		qcom,eeprom-src = <&eeprom0>;
 		cam_vana-supply = <&pm8916_l16>;
@@ -125,15 +140,18 @@
 				&cam_sensor_rear_sleep>;
 		gpios = <&tlmm 25 0>,
 			<&tlmm 26 0>,
-			<&tlmm 36 0>;
+			<&tlmm 36 0>,
+                        <&tlmm 35 0>;
 
 		qcom,gpio-reset = <2>;
 		qcom,gpio-vdig = <0>;
-		qcom,gpio-req-tbl-num = <0 1 2 >;
-		qcom,gpio-req-tbl-flags = <1 0 0 >;
+                qcom,gpio-standby = <3>;
+		qcom,gpio-req-tbl-num = <0 1 2 3>;
+		qcom,gpio-req-tbl-flags = <1 0 0 0>;
 		qcom,gpio-req-tbl-label = "CAM_VDIG",
 			"CAMIF_MCLK0",
-			"CAM_RESET0";
+			"CAM_RESET0",
+                        "CAMIF_STANDBY0";
 		qcom,sensor-position = <0>;
 		qcom,sensor-mode = <0>;
 		qcom,cci-master = <0>;
@@ -143,8 +161,8 @@
 		qcom,clock-rates = <24000000 0>;
 	};
 
-	qcom,camera@2 {
-		cell-index = <2>;
+	qcom,camera@1 {
+		cell-index = <1>;//2019.11.19,jlq modify this
 		compatible = "qcom,camera";
 		reg = <0x01>;
 		qcom,csiphy-sd-index = <1>;

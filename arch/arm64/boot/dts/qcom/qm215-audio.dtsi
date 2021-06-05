@@ -50,8 +50,8 @@
 		qcom,msm-ext-pa = "primary";
 		qcom,msm-mclk-freq = <9600000>;
 		qcom,msm-mbhc-hphl-swh = <1>;
-		qcom,msm-mbhc-gnd-swh = <1>;
-		qcom,msm-hs-micbias-type = "external";
+		qcom,msm-mbhc-gnd-swh = <0>;
+		qcom,msm-hs-micbias-type = "internal";
 		qcom,msm-micbias1-ext-cap;
 
 		qcom,audio-routing =
@@ -61,10 +61,10 @@
 				"RX_I2S_CLK", "MCLK",
 				"TX_I2S_CLK", "MCLK",
 				"MIC BIAS External", "Handset Mic",
-				"MIC BIAS External2", "Headset Mic",
+				"MIC BIAS Internal2", "Headset Mic",
 				"MIC BIAS External", "Secondary Mic",
 				"AMIC1", "MIC BIAS External",
-				"AMIC2", "MIC BIAS External2",
+				"AMIC2", "MIC BIAS Internal2",
 				"AMIC3", "MIC BIAS External",
 				"ADC1_IN", "ADC1_OUT",
 				"ADC2_IN", "ADC2_OUT",
@@ -72,6 +72,8 @@
 				"PDM_IN_RX1", "PDM_OUT_RX1",
 				"PDM_IN_RX2", "PDM_OUT_RX2",
 				"PDM_IN_RX3", "PDM_OUT_RX3";
+
+		qcom,msm-spk-ext-pa = <&tlmm 12 0>;
 
 		qcom,pri-mi2s-gpios = <&cdc_pri_mi2s_gpios>;
 		qcom,quin-mi2s-gpios = <&cdc_quin_mi2s_gpios>;
@@ -177,6 +179,8 @@
 				"ear_cnp_int",
 				"hphr_cnp_int",
 				"hphl_cnp_int";
+		qcom,msm-hs-spk-switch = <&tlmm 126 0>;
+		qcom,msm-hs-spk-enable = <&tlmm 125 0>;
 
 		cdc-vdd-pa-cp-supply = <&pm8916_s4>;
 		qcom,cdc-vdd-pa-cp-voltage = <2050000 2050000>;

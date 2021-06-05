@@ -163,4 +163,31 @@ config SMB1390_CHARGE_PUMP
 	  SMB1390 is a div2 charge pump capable of delivering 6A charge current
 	  with very high efficiency.
 
+#[BUG]-Add-BEGIN by pingao.yang, 2018/01/21, add PROJECT_T89626 macro
+config PROJECT_T89626
+	tristate "PROJECT T89626"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y to enables support project t89626
+#[BUG]-Add-END by pingao.yang
+
+config PROJECT_T89572
+	tristate "PROJECT T89572"
+	depends on MFD_SPMI_PMIC
+	help
+	  Say Y to enables support project t89572
+
+config DISABLE_TEMP_PROTECT
+	bool "control of TEMP protect"
+	default n
+	help
+	  Say Y here to enable a function which disabled TEMP protect...
+	  WARNNING:Only SCM could open it.
+
+config T89572_DISABLE_TEMP_PROTECT
+	bool "control of TEMP protect"
+	default n
+	help
+	  Say Y here to enable a function which disabled TEMP protect...
+	  WARNNING:Only SCM could open it.
 endmenu
