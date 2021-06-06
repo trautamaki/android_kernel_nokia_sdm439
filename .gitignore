@@ -19,6 +19,8 @@
 *.so.dbg
 *.mod.c
 *.i
+!drivers/input/touchscreen/focaltech_touch/include/firmware/*.i
+!drivers/input/touchscreen/hxchipset/*.i
 *.lst
 *.symtypes
 *.order
